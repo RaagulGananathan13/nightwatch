@@ -45,3 +45,9 @@ dashboard/dist/
 !.vscode/extensions.json
 .DS_Store
 Thumbs.db
+
+# Version stamp written by the Lambda build
+shoplite/_build.json
+
+# Terraform backend settings (bucket name holds the account id)
+backend.hcl

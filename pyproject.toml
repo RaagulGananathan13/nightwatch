@@ -78,7 +78,7 @@ target-version = ["py313"]
 
 [tool.mypy]
 python_version = "3.13"
-files = ["nightwatch", "tests"]
+files = ["nightwatch", "shoplite", "scripts", "tests"]
 strict = true
 warn_unreachable = true
 pretty = true
@@ -101,7 +101,7 @@ filterwarnings = ["error"]
 
 [tool.coverage.run]
 branch = true
-source = ["nightwatch"]
+source = ["nightwatch", "shoplite", "scripts"]
 
 [tool.coverage.report]
 show_missing = true
