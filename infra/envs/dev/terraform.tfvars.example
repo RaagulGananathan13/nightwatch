@@ -1,0 +1,8 @@
+# Copy to terraform.tfvars (git-ignored) and fill in.
+budget_alert_email = "you@example.com"
+
+# Set to false only if create-deployer.sh said a GitHub OIDC provider already exists.
+# create_github_oidc_provider = false
+
+# Pause the background canary traffic (alarms then only fire during chaos runs).
+# canary_enabled = false
