@@ -15,7 +15,7 @@ else
 endif
 PY := $(BIN)/python
 
-PY_SRC := nightwatch shoplite scripts tests
+PY_SRC := nightwatch shoplite scripts chaos tests
 TF_DIR := infra
 # Root configurations. Validating a root also validates every module it uses.
 TF_ROOTS := $(TF_DIR)/bootstrap $(TF_DIR)/envs/dev
@@ -26,7 +26,7 @@ export AWS_PROFILE ?= nightwatch
 GIT_SHA := $(shell git rev-parse --short=12 HEAD 2>/dev/null || echo dev)
 
 .PHONY: help install fmt lint typecheck test check security tf-fmt tf-check clean build
-.PHONY: bootstrap-plan bootstrap-apply init plan apply destroy
+.PHONY: bootstrap-plan bootstrap-apply init plan apply destroy chaos-bad-deploy
 
 help: ## Show this list
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-15s %s\n", $$1, $$2}'
@@ -57,7 +57,7 @@ test: ## Unit tests with coverage (integration tests are opt-in: pytest -m integ
 check: lint typecheck test ## Everything CI runs on the Python code
 
 security: ## bandit (code) and pip-audit (known-vulnerable dependencies)
-	$(PY) -m bandit -c pyproject.toml -r nightwatch shoplite scripts -q
+	$(PY) -m bandit -c pyproject.toml -r nightwatch shoplite scripts chaos -q
 	$(PY) -m pip_audit --skip-editable --progress-spinner off
 
 tf-fmt: ## Format Terraform files
@@ -71,8 +71,10 @@ tf-check: ## terraform fmt check, then validate every module (no AWS access need
 	  terraform -chdir=$$d validate; \
 	done
 
-build: ## Build the ShopLite Lambda zip into .build/ (stamped with the git SHA)
+build: ## Build the Lambda zips into .build/ (ShopLite, NightWatch, and the arm64 dependency layer)
 	$(PY) -m scripts.build_lambda shoplite --out .build/shoplite-api.zip --version $(GIT_SHA)
+	$(PY) -m scripts.build_lambda nightwatch --out .build/nightwatch.zip
+	$(PY) -m scripts.build_layer --out .build/nightwatch-deps.zip
 
 # --- AWS. Plans are free to run; every apply uses a saved plan you have reviewed. ---
 
@@ -94,6 +96,11 @@ apply: ## Apply the reviewed dev plan
 
 destroy: ## Delete everything in dev (asks before deleting)
 	terraform -chdir=$(TF_ENV) destroy -input=false
+
+# --- Chaos lab (uses the nightwatch profile; always restores ShopLite afterwards) ---
+
+chaos-bad-deploy: ## Turn on ShopLite's error flag for 4 minutes and check NightWatch's response
+	$(PY) -m chaos.bad_deploy
 
 clean: ## Remove caches and build output
 	rm -rf .pytest_cache .mypy_cache .ruff_cache .coverage htmlcov build dist .build *.egg-info
