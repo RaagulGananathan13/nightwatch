@@ -1,0 +1,173 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "OwnRegionalResources",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:*",
+        "dynamodb:*",
+        "states:*",
+        "events:*",
+        "scheduler:*",
+        "logs:*",
+        "ssm:*",
+        "cloudwatch:*",
+        "sqs:*"
+      ],
+      "Resource": [
+        "arn:aws:lambda:__REGION__:__ACCOUNT_ID__:function:nightwatch-*",
+        "arn:aws:lambda:__REGION__:__ACCOUNT_ID__:function:shoplite-*",
+        "arn:aws:lambda:__REGION__:__ACCOUNT_ID__:layer:nightwatch-*",
+        "arn:aws:dynamodb:__REGION__:__ACCOUNT_ID__:table/nightwatch*",
+        "arn:aws:dynamodb:__REGION__:__ACCOUNT_ID__:table/shoplite*",
+        "arn:aws:states:__REGION__:__ACCOUNT_ID__:stateMachine:nightwatch-*",
+        "arn:aws:states:__REGION__:__ACCOUNT_ID__:execution:nightwatch-*",
+        "arn:aws:events:__REGION__:__ACCOUNT_ID__:rule/nightwatch-*",
+        "arn:aws:scheduler:__REGION__:__ACCOUNT_ID__:schedule/*/nightwatch-*",
+        "arn:aws:scheduler:__REGION__:__ACCOUNT_ID__:schedule/*/shoplite-*",
+        "arn:aws:logs:__REGION__:__ACCOUNT_ID__:log-group:/aws/lambda/nightwatch-*",
+        "arn:aws:logs:__REGION__:__ACCOUNT_ID__:log-group:/aws/lambda/shoplite-*",
+        "arn:aws:ssm:__REGION__:__ACCOUNT_ID__:parameter/nightwatch/*",
+        "arn:aws:ssm:__REGION__:__ACCOUNT_ID__:parameter/shoplite/*",
+        "arn:aws:cloudwatch:__REGION__:__ACCOUNT_ID__:alarm:nightwatch-*",
+        "arn:aws:cloudwatch:__REGION__:__ACCOUNT_ID__:alarm:shoplite-*",
+        "arn:aws:sqs:__REGION__:__ACCOUNT_ID__:nightwatch-*"
+      ]
+    },
+    {
+      "Sid": "RegionWideReadsAndCallbacks",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:List*",
+        "lambda:GetAccountSettings",
+        "dynamodb:List*",
+        "dynamodb:DescribeLimits",
+        "dynamodb:DescribeEndpoints",
+        "states:List*",
+        "states:SendTask*",
+        "states:ValidateStateMachineDefinition",
+        "events:List*",
+        "scheduler:List*",
+        "logs:Describe*",
+        "logs:GetQueryResults",
+        "logs:StopQuery",
+        "ssm:DescribeParameters",
+        "cloudwatch:Describe*",
+        "cloudwatch:List*",
+        "cloudwatch:GetMetricStatistics",
+        "cloudtrail:LookupEvents",
+        "tag:GetResources",
+        "xray:PutTraceSegments",
+        "xray:PutTelemetryRecords",
+        "sqs:ListQueues"
+      ],
+      "Resource": "*",
+      "Condition": { "StringEquals": { "aws:RequestedRegion": "__REGION__" } }
+    },
+    {
+      "Sid": "OwnBuckets",
+      "Effect": "Allow",
+      "Action": "s3:*",
+      "Resource": ["arn:aws:s3:::nightwatch-*", "arn:aws:s3:::nightwatch-*/*"]
+    },
+    {
+      "Sid": "CreateRolesOnlyWithThisBoundary",
+      "Effect": "Allow",
+      "Action": ["iam:CreateRole", "iam:PutRolePermissionsBoundary"],
+      "Resource": "arn:aws:iam::__ACCOUNT_ID__:role/nightwatch/*",
+      "Condition": {
+        "StringEquals": {
+          "iam:PermissionsBoundary": "arn:aws:iam::__ACCOUNT_ID__:policy/nightwatch/NightWatchBoundary"
+        }
+      }
+    },
+    {
+      "Sid": "ManageOwnRoles",
+      "Effect": "Allow",
+      "Action": [
+        "iam:GetRole",
+        "iam:DeleteRole",
+        "iam:UpdateRole",
+        "iam:UpdateRoleDescription",
+        "iam:UpdateAssumeRolePolicy",
+        "iam:TagRole",
+        "iam:UntagRole",
+        "iam:ListRoleTags",
+        "iam:PutRolePolicy",
+        "iam:GetRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:ListRolePolicies",
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:ListAttachedRolePolicies",
+        "iam:ListInstanceProfilesForRole"
+      ],
+      "Resource": "arn:aws:iam::__ACCOUNT_ID__:role/nightwatch/*"
+    },
+    {
+      "Sid": "PassOwnRolesToServices",
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": "arn:aws:iam::__ACCOUNT_ID__:role/nightwatch/*",
+      "Condition": {
+        "StringEquals": {
+          "iam:PassedToService": [
+            "lambda.amazonaws.com",
+            "states.amazonaws.com",
+            "scheduler.amazonaws.com",
+            "events.amazonaws.com"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "GitHubOidcProvider",
+      "Effect": "Allow",
+      "Action": "iam:*OpenIDConnectProvider*",
+      "Resource": "arn:aws:iam::__ACCOUNT_ID__:oidc-provider/token.actions.githubusercontent.com"
+    },
+    {
+      "Sid": "FindOidcProviders",
+      "Effect": "Allow",
+      "Action": "iam:ListOpenIDConnectProviders",
+      "Resource": "*"
+    },
+    {
+      "Sid": "OwnBudgets",
+      "Effect": "Allow",
+      "Action": [
+        "budgets:ViewBudget",
+        "budgets:ModifyBudget",
+        "budgets:TagResource",
+        "budgets:UntagResource",
+        "budgets:ListTagsForResource"
+      ],
+      "Resource": "arn:aws:budgets::__ACCOUNT_ID__:budget/nightwatch-*"
+    },
+    {
+      "Sid": "SecureStringParameters",
+      "Effect": "Allow",
+      "Action": ["kms:Decrypt", "kms:Encrypt", "kms:GenerateDataKey", "kms:DescribeKey"],
+      "Resource": "*",
+      "Condition": { "StringEquals": { "kms:ViaService": "ssm.__REGION__.amazonaws.com" } }
+    },
+    {
+      "Sid": "BoundaryCannotBeChanged",
+      "Effect": "Deny",
+      "Action": [
+        "iam:CreatePolicyVersion",
+        "iam:DeletePolicy",
+        "iam:DeletePolicyVersion",
+        "iam:SetDefaultPolicyVersion"
+      ],
+      "Resource": "arn:aws:iam::__ACCOUNT_ID__:policy/nightwatch/NightWatchBoundary"
+    },
+    {
+      "Sid": "BoundaryCannotBeRemoved",
+      "Effect": "Deny",
+      "Action": "iam:DeleteRolePermissionsBoundary",
+      "Resource": "*"
+    }
+  ]
+}
