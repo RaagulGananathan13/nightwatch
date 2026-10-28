@@ -122,7 +122,14 @@ def test_card_shows_grouping_then_resolution() -> None:
         resolved_at=T0 + timedelta(minutes=6, seconds=20),
         alarms={"shoplite-5xx-rate": "OK"},
     )
-    assert "resolved** for **shoplite** after 6m 20s" in incident_message(done, T0)["content"]
+    content = incident_message(done, T0)["content"]
+    assert "resolved** for **shoplite** after 6m 20s: its alarm recovered." in content
+    both = done.model_copy(update={"alarms": {"a": "OK", "b": "OK"}, "alert_count": 2})
+    assert content.replace("its alarm recovered", "all 2 alarms recovered") == (
+        incident_message(both, T0)["content"]
+    )
+    fields = {f["name"]: f["value"] for f in incident_message(done, T0)["embeds"][0]["fields"]}
+    assert fields["Alerts"] == "1 alert"
 
 
 def test_card_text_from_alarms_cannot_break_formatting() -> None:

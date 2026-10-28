@@ -19,10 +19,9 @@ def incident_message(incident: Incident, now: datetime) -> dict[str, Any]:
 
     if resolved:
         took = duration((incident.resolved_at or now) - incident.opened_at)
-        content = (
-            f"✅ **{label} resolved** for **{service}** after {took}: "
-            f"all {len(incident.alarms)} alarms recovered."
-        )
+        count = len(incident.alarms)
+        recovered = "its alarm recovered" if count == 1 else f"all {count} alarms recovered"
+        content = f"✅ **{label} resolved** for **{service}** after {took}: {recovered}."
     elif incident.alert_count == 1:
         content = (
             f"🔴 **{label} opened** for **{service}**: "
@@ -41,7 +40,7 @@ def incident_message(incident: Incident, now: datetime) -> dict[str, Any]:
     fields = [
         {"name": "Status", "value": "Resolved" if resolved else "Open", "inline": True},
         {"name": "Severity", "value": incident.severity.title(), "inline": True},
-        {"name": "Alerts", "value": f"{incident.alert_count} grouped", "inline": True},
+        {"name": "Alerts", "value": _alerts(incident.alert_count), "inline": True},
         {"name": "Alarms", "value": _limit("\n".join(alarm_lines) or "-", 1024), "inline": False},
         {"name": "Opened", "value": f"<t:{int(incident.opened_at.timestamp())}:R>", "inline": True},
     ]
@@ -70,6 +69,10 @@ def duration(span: timedelta) -> str:
     if minutes:
         return f"{minutes}m {secs}s"
     return f"{secs}s"
+
+
+def _alerts(count: int) -> str:
+    return "1 alert" if count == 1 else f"{count} grouped"
 
 
 def _clean(text: str) -> str:
