@@ -12,8 +12,9 @@ always-free services and free LLM tiers.
 [![CI](https://github.com/RaagulGananathan13/nightwatch/actions/workflows/ci.yml/badge.svg)](https://github.com/RaagulGananathan13/nightwatch/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-> **Status: Phase 0 of 9 (foundations).** The repository, tooling and CI exist. Nothing is
-> deployed to AWS yet. See the [roadmap](#roadmap).
+> **Status: Phase 1 of 9.** Foundations are done. The Phase 1 infrastructure (budget alert,
+> GitHub OIDC, the ShopLite demo app and its alarms) is written and tested but not yet deployed
+> to AWS. See the [roadmap](#roadmap) and the [infrastructure guide](infra/README.md).
 
 ## How it works
 
@@ -58,8 +59,8 @@ Phase 9 is tagged `v1.0`.
 
 | Phase | What ships | Status |
 |---|---|---|
-| 0 | Repository, tooling, CI | In progress |
-| 1 | Terraform base, $1 budget alert, GitHub OIDC, ShopLite demo app and its alarms | Planned |
+| 0 | Repository, tooling, CI | Done |
+| 1 | Terraform base, $1 budget alert, GitHub OIDC, ShopLite demo app and its alarms | Built, awaiting deploy |
 | 2 | Alert ingest, incident dedupe, Discord notifications, first chaos script | Planned |
 | 3 | Investigation agent, evidence ledger, hallucination guard | Planned |
 | 4 | Runbooks, approval buttons, remediation, audit log, kill switch | Planned |
@@ -98,6 +99,8 @@ make install     # create .venv, install the dev tools, enable the pre-commit ho
 make check       # lint, type-check and unit tests (the same as CI)
 make help        # list every task
 ```
+
+To deploy to your own AWS account, follow the step-by-step [infrastructure guide](infra/README.md).
 
 ## Repository layout
 

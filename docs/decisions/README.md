@@ -13,5 +13,6 @@ true $0 per month or to close a gap found while reviewing the spec.
 | [0005](0005-python-313-arm64-minimal-dependencies.md) | Python 3.13 on arm64 with minimal dependencies | Accepted |
 | [0006](0006-restricted-deployer-and-permissions-boundary.md) | Restricted deployer user and a permissions boundary | Accepted |
 | [0007](0007-free-aws-api-calls-only.md) | Use only free AWS API calls | Accepted |
+| [0008](0008-ci-ships-code-terraform-ships-infrastructure.md) | CI ships code, reviewed Terraform ships infrastructure | Accepted |
 
 New records copy the layout of an existing one: Context, Decision, Consequences.
