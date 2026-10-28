@@ -272,6 +272,7 @@ resource "aws_lambda_function" "canary" {
 
 # EventBridge Scheduler: 14 million invocations a month are free; this uses about 44,000.
 resource "aws_scheduler_schedule" "canary" {
+  #checkov:skip=CKV_AWS_297:Customer-managed KMS keys cost $1/month; the schedule holds no secrets (ADR 0007)
   count                        = var.canary_enabled ? 1 : 0
   name                         = local.canary_name
   description                  = "Run the ShopLite canary"

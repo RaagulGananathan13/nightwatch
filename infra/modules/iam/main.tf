@@ -109,34 +109,74 @@ resource "aws_iam_role_policy" "plan" {
   policy = data.aws_iam_policy_document.plan.json
 }
 
+locals {
+  account = data.aws_caller_identity.current.account_id
+  region  = data.aws_region.current.region
+  # Name prefixes NightWatch owns, the same ones the NightWatchBoundary policy allows.
+  owned = ["nightwatch", "shoplite"]
+}
+
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
 data "aws_iam_policy_document" "plan" {
-  # Reads only. The boundary already narrows these to NightWatch's own resources.
+  # Reads only, and only on NightWatch's own resources (no "*" on anything that holds data).
   statement {
-    sid = "ReadEverythingTerraformManages"
+    sid = "ReadOwnResources"
     actions = [
-      "budgets:ViewBudget",
       "budgets:ListTagsForResource",
-      "cloudwatch:Describe*",
-      "cloudwatch:List*",
+      "budgets:ViewBudget",
+      "cloudwatch:DescribeAlarms",
+      "cloudwatch:ListTagsForResource",
       "dynamodb:Describe*",
       "dynamodb:GetItem", # seeded ShopLite products are Terraform resources too
-      "dynamodb:List*",
-      "events:Describe*",
-      "events:List*",
-      "iam:Get*",
-      "iam:List*",
+      "dynamodb:ListTagsOfResource",
+      "events:DescribeRule",
+      "events:ListTagsForResource",
+      "events:ListTargetsByRule",
+      "iam:GetOpenIDConnectProvider",
+      "iam:GetRole",
+      "iam:GetRolePolicy",
+      "iam:ListAttachedRolePolicies",
+      "iam:ListRolePolicies",
       "lambda:Get*",
-      "lambda:List*",
-      "logs:Describe*",
-      "logs:List*",
-      "scheduler:Get*",
-      "scheduler:List*",
-      "ssm:Describe*",
-      "ssm:Get*",
-      "ssm:List*",
+      "lambda:ListTags",
+      "lambda:ListVersionsByFunction",
+      "logs:ListTagsForResource",
+      "scheduler:GetSchedule",
+      "ssm:GetParameter",
+      "ssm:ListTagsForResource",
       "states:Describe*",
-      "states:List*",
+      "states:ListTagsForResource",
     ]
+    resources = concat(
+      flatten([for p in local.owned : [
+        "arn:aws:lambda:${local.region}:${local.account}:function:${p}-*",
+        "arn:aws:dynamodb:${local.region}:${local.account}:table/${p}*",
+        "arn:aws:ssm:${local.region}:${local.account}:parameter/${p}/*",
+        "arn:aws:logs:${local.region}:${local.account}:log-group:/aws/lambda/${p}-*",
+        "arn:aws:cloudwatch:${local.region}:${local.account}:alarm:${p}-*",
+        "arn:aws:scheduler:${local.region}:${local.account}:schedule/*/${p}-*",
+      ]]),
+      [
+        "arn:aws:events:${local.region}:${local.account}:rule/nightwatch-*",
+        "arn:aws:states:${local.region}:${local.account}:stateMachine:nightwatch-*",
+        "arn:aws:iam::${local.account}:role/nightwatch/*",
+        "arn:aws:iam::${local.account}:oidc-provider/${local.oidc_host}",
+        "arn:aws:budgets::${local.account}:budget/nightwatch-*",
+      ],
+    )
+  }
+
+  statement {
+    sid       = "ListLogGroups"
+    actions   = ["logs:DescribeLogGroups"]
+    resources = ["arn:aws:logs:${local.region}:${local.account}:log-group:*"]
+  }
+
+  statement {
+    sid       = "ListParameters" # this API has no resource-level permissions
+    actions   = ["ssm:DescribeParameters"]
     resources = ["*"]
   }
 
