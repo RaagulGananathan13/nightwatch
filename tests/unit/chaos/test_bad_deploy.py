@@ -34,6 +34,7 @@ class FakeLab:
         self.incident_count = incidents
         self.messages = messages
         self.fail_requests = False
+        self.flap_wait = 0.0
 
     def get_flags(self) -> dict[str, Any]:
         return dict(self.flags)
@@ -56,6 +57,9 @@ class FakeLab:
 
     def audit(self, incident_id: str) -> list[dict[str, Any]]:
         return [{"event": "notification_sent"}] * self.messages
+
+    def seconds_until_new_incident(self, service: str) -> float:
+        return self.flap_wait
 
 
 def _incident(number: int, status: str) -> Incident:
@@ -108,6 +112,16 @@ def test_flags_are_restored_even_when_something_breaks() -> None:
     with pytest.raises(RuntimeError, match="network down"):
         scenario(lab, time, [])
     assert lab.flags == {}
+
+
+def test_waits_out_the_flap_window_before_injecting() -> None:
+    time = FakeTime()
+    lab = FakeLab(time)
+    lab.flap_wait = 330.0
+    lines: list[str] = []
+    assert scenario(lab, time, lines) == 0
+    assert "Waiting 5m 30s" in lines[0]
+    assert time.seconds >= 330
 
 
 def test_refuses_to_start_when_a_fault_is_already_active() -> None:

@@ -20,7 +20,7 @@ import sys
 import time
 from collections import Counter
 from collections.abc import Callable
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Protocol
 
 from nightwatch.chat.cards import duration
@@ -37,6 +37,7 @@ class LabLike(Protocol):
     def request(self, method: str, path: str, body: dict[str, object] | None = None) -> int: ...
     def incidents_since(self, service: str, since: datetime) -> list[Incident]: ...
     def audit(self, incident_id: str) -> list[dict[str, object]]: ...
+    def seconds_until_new_incident(self, service: str) -> float: ...
 
 
 def run(
@@ -53,6 +54,14 @@ def run(
     if original:
         out(f"ShopLite already has flags set ({original}). Clear them first; stopping.")
         return 2
+
+    wait = lab.seconds_until_new_incident(SERVICE)
+    if wait:
+        out(
+            "The last incident resolved recently, so new alarms would reopen it (flap window). "
+            f"Waiting {duration(timedelta(seconds=wait))} so this run gets its own incident..."
+        )
+        sleep(wait)
 
     started = now()
     out(

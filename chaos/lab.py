@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 import boto3
@@ -12,9 +12,11 @@ import boto3
 from nightwatch.common.audit import AuditLog
 from nightwatch.common.incidents import IncidentStore
 from nightwatch.common.models import Incident
+from nightwatch.common.timeutil import utcnow
 from shoplite.canary import signed_request
 
 FLAGS_PARAM = "/shoplite/flags"
+FLAP_WINDOW = timedelta(minutes=10)  # matches nightwatch-ingest's FLAP_WINDOW_MINUTES
 FUNCTION = "shoplite-api"
 
 
@@ -67,6 +69,15 @@ class Lab:
             (i for i in found if i.service == service and i.opened_at >= since),
             key=lambda incident: incident.opened_at,
         )
+
+    def seconds_until_new_incident(self, service: str) -> float:
+        """How long until a new alarm would open a fresh incident instead of reopening one."""
+        store = IncidentStore(self.table, self.tenant, self.session.client("dynamodb"))
+        pointer = store.get_pointer(service)
+        if pointer is None or pointer.status != "resolved" or pointer.resolved_at is None:
+            return 0.0
+        remaining = pointer.resolved_at + FLAP_WINDOW - utcnow()
+        return max(0.0, remaining.total_seconds() + 30)  # a little margin for clock skew
 
     def audit(self, incident_id: str) -> list[dict[str, Any]]:
         log = AuditLog(self.table, self.tenant, "chaos", self.session.client("dynamodb"))
