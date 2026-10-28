@@ -1,0 +1,114 @@
+[build-system]
+requires = ["setuptools>=80"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nightwatch"
+dynamic = ["version"]
+description = "Open-source AI on-call agent for AWS: evidence-backed incident diagnosis and approval-gated fixes at $0/month."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Raagul Gananathan" }]
+requires-python = ">=3.13"
+classifiers = [
+  "Programming Language :: Python :: 3.13",
+  "Operating System :: OS Independent",
+  "Topic :: System :: Monitoring",
+]
+# Runtime dependencies ship to AWS Lambda in a shared layer, so this list stays short.
+# boto3 is provided by the Lambda runtime and is therefore only a dev dependency.
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "pytest==9.2.0",
+  "pytest-cov==7.1.0",
+  "ruff==0.17.3",
+  "black==26.10.1",
+  "mypy==2.4.0",
+  "pre-commit==4.7.0",
+  "bandit[toml]==1.9.4",
+  "pip-audit==2.10.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/RaagulGananathan13/nightwatch"
+Issues = "https://github.com/RaagulGananathan13/nightwatch/issues"
+
+[tool.setuptools.dynamic]
+version = { attr = "nightwatch.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["nightwatch*"]
+
+# ---------------------------------------------------------------- lint & format
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+extend-exclude = ["dashboard", "infra"]
+
+[tool.ruff.lint]
+select = [
+  "E", "W",  # pycodestyle
+  "F",       # pyflakes
+  "I",       # import sorting
+  "B",       # likely bugs (bugbear)
+  "UP",      # modern Python syntax
+  "S",       # security checks (bandit rules)
+  "SIM",     # simplifications
+  "C4",      # comprehensions
+  "DTZ",     # timezone-aware datetimes: incident timelines must never use naive times
+  "T20",     # no stray print() in library code
+  "PT",      # pytest style
+  "N",       # naming
+  "RUF",     # ruff-specific checks
+]
+ignore = ["E501"]  # black owns line length
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106"]  # asserts and obviously fake secrets are fine in tests
+
+[tool.black]
+line-length = 100
+target-version = ["py313"]
+
+# ------------------------------------------------------------------ type checks
+
+[tool.mypy]
+python_version = "3.13"
+files = ["nightwatch", "tests"]
+strict = true
+warn_unreachable = true
+pretty = true
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+
+# ------------------------------------------------------------------------ tests
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["-ra", "--strict-markers", "--strict-config", "-m", "not integration"]
+markers = [
+  "integration: needs a deployed dev stack and AWS credentials (run with -m integration)",
+]
+xfail_strict = true
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+branch = true
+source = ["nightwatch"]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError", "@overload"]
+
+# --------------------------------------------------------------------- security
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv"]

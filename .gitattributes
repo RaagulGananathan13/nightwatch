@@ -1,0 +1,19 @@
+# Store and check out text files with LF endings on every OS. Lambda zips built on
+# Windows then match the ones CI builds on Linux, so Terraform doesn't redeploy for nothing.
+* text=auto eol=lf
+
+# Windows-only scripts keep CRLF
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.woff binary
+*.woff2 binary
