@@ -1,0 +1,7 @@
+# Third-party packages in the NightWatch Lambda layer, built for linux arm64 by
+# scripts/build_layer.py. Everything is pinned, including dependencies, so every build is identical.
+pydantic==2.14.1
+pydantic-core==2.50.1
+annotated-types==0.8.0
+typing-extensions==4.16.0
+typing-inspection==0.4.4

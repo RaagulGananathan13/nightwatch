@@ -16,9 +16,9 @@ classifiers = [
   "Operating System :: OS Independent",
   "Topic :: System :: Monitoring",
 ]
-# Runtime dependencies ship to AWS Lambda in a shared layer, so this list stays short.
-# boto3 is provided by the Lambda runtime and is therefore only a dev dependency.
-dependencies = []
+# Runtime dependencies ship to AWS Lambda in a shared layer (pinned in requirements-lambda.txt),
+# so this list stays short. boto3 comes with the Lambda runtime, so it is only a dev dependency.
+dependencies = ["pydantic>=2.14,<3"]
 
 [project.optional-dependencies]
 dev = [
@@ -32,7 +32,7 @@ dev = [
   "pip-audit==2.10.1",
   # AWS SDK and mocks for tests (Lambda provides boto3 at runtime)
   "boto3==1.43.120",
-  "boto3-stubs[dynamodb,ssm,lambda]==1.43.120",
+  "boto3-stubs[dynamodb,ssm,lambda,cloudwatch]==1.43.120",
   "moto[dynamodb,ssm,awslambda]==5.2.5",
 ]
 
@@ -45,6 +45,7 @@ version = { attr = "nightwatch.__version__" }
 
 [tool.setuptools.packages.find]
 include = ["nightwatch*"]
+exclude = ["nightwatch.tests*"]
 
 # ---------------------------------------------------------------- lint & format
 
@@ -82,7 +83,8 @@ target-version = ["py313"]
 
 [tool.mypy]
 python_version = "3.13"
-files = ["nightwatch", "shoplite", "scripts", "tests"]
+files = ["nightwatch", "shoplite", "scripts", "chaos", "tests"]
+plugins = ["pydantic.mypy"]
 strict = true
 warn_unreachable = true
 pretty = true
@@ -105,7 +107,7 @@ filterwarnings = ["error"]
 
 [tool.coverage.run]
 branch = true
-source = ["nightwatch", "shoplite", "scripts"]
+source = ["nightwatch", "shoplite", "scripts", "chaos"]
 
 [tool.coverage.report]
 show_missing = true
