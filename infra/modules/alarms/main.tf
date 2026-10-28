@@ -11,9 +11,12 @@ locals {
   lambda_dims = { FunctionName = var.function_name }
 }
 
+# Failed requests as a share of all requests. The numerator is Lambda's Errors metric, not the
+# function URL's Url5xxCount: when the function crashes, the URL answers HTTP 502, but measured on
+# 2026-10-28, Url5xxCount stayed empty while Errors counted every failure (ADR 0001).
 resource "aws_cloudwatch_metric_alarm" "error_rate" {
   alarm_name          = "${var.service}-5xx-rate"
-  alarm_description   = "More than ${var.error_rate_percent}% of ${var.service} requests returned 5xx in a minute."
+  alarm_description   = "More than ${var.error_rate_percent}% of ${var.service} requests failed (HTTP 5xx) in a minute."
   comparison_operator = "GreaterThanThreshold"
   threshold           = var.error_rate_percent
   evaluation_periods  = 1
@@ -24,7 +27,7 @@ resource "aws_cloudwatch_metric_alarm" "error_rate" {
   metric_query {
     id          = "rate"
     expression  = "100 * FILL(errors, 0) / requests"
-    label       = "5xx responses (%)"
+    label       = "Failed requests (%)"
     return_data = true
   }
 
@@ -33,7 +36,7 @@ resource "aws_cloudwatch_metric_alarm" "error_rate" {
 
     metric {
       namespace   = "AWS/Lambda"
-      metric_name = "Url5xxCount"
+      metric_name = "Errors"
       dimensions  = local.lambda_dims
       period      = 60
       stat        = "Sum"

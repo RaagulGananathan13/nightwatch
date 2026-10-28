@@ -24,8 +24,13 @@ which is always free up to 1 million requests and 400,000 GB-seconds a month.
 - The **dashboard API** uses `NONE` auth plus a Cognito JWT that is verified in code. CORS is
   configured on the URL.
 
-Alarms use Lambda's function URL metrics (`UrlRequestCount`, `Url5xxCount`,
-`UrlRequestLatency`) instead of API Gateway's.
+Alarms use Lambda's function URL metrics (`UrlRequestCount` and `UrlRequestLatency`) instead
+of API Gateway's.
+
+**Measured on 2026-10-28:** when the function crashes, the URL answers HTTP 502, but
+`Url5xxCount` stays empty. In the first chaos run, 55 requests got a 502 and Lambda's `Errors`
+metric counted every failure, while `Url5xxCount` had no data at all. The `shoplite-5xx-rate`
+alarm therefore divides `Errors` by `UrlRequestCount`.
 
 ## Consequences
 
