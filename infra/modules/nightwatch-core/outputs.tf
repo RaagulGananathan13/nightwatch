@@ -1,0 +1,20 @@
+output "table_name" {
+  value = aws_dynamodb_table.this.name
+}
+
+output "ingest_function_name" {
+  value = aws_lambda_function.ingest.function_name
+}
+
+output "dead_letter_queue" {
+  description = "Alerts that failed every retry. Should stay empty."
+  value       = aws_sqs_queue.ingest_dlq.name
+}
+
+output "provisioned_capacity" {
+  description = "Read and write units this module uses (table plus index), for the free-tier guard."
+  value = {
+    read  = aws_dynamodb_table.this.read_capacity + var.index_capacity
+    write = aws_dynamodb_table.this.write_capacity + var.index_capacity
+  }
+}

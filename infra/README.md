@@ -10,7 +10,8 @@ DynamoDB capacity or CloudWatch alarm metrics would go over it.
 | `modules/budget` | $1 monthly budget on NightWatch's services (Lambda, DynamoDB, Step Functions, CloudWatch, S3), emailing at the first cent, at $1, and when the forecast passes $1 |
 | `modules/iam` | GitHub OIDC trust plus two roles: `github-deploy` (ships code) and `github-plan` (read-only) |
 | `modules/shoplite` | The demo store: DynamoDB table, Lambda with `live` alias and IAM-auth URL, flags parameter, canary |
-| `modules/alarms` | The five ShopLite alarms (7 of the 10 free alarm metrics) |
+| `modules/alarms` | The five ShopLite alarms (7 of the 10 free alarm metrics), each tagged with its service and severity |
+| `modules/nightwatch-core` | The `nightwatch` table, the dependency layer, the `nightwatch-ingest` Lambda, its dead-letter queue, and the EventBridge rule for alarm changes |
 | `envs/dev/` | Wires the modules together and checks the free-tier limits |
 
 Every IAM role lives under `/nightwatch/` and carries the `NightWatchBoundary` permissions boundary, so
@@ -38,10 +39,22 @@ Run the `make` commands from Git Bash in the repository root.
    terraform -chdir=infra/bootstrap output -raw backend_config > infra/envs/dev/backend.hcl
    ```
 
-3. **Fill in your settings.** Copy `envs/dev/terraform.tfvars.example` to `envs/dev/terraform.tfvars`
+3. **Store the Discord webhook (Phase 2).** In Discord, open your alerts channel and go to
+   **Edit Channel → Integrations → Webhooks → New Webhook → Copy Webhook URL**. Then run this in
+   PowerShell exactly as written, and paste the URL when it asks:
+
+   ```powershell
+   aws configure set cli_follow_urlparam false --profile nightwatch
+   $url = Read-Host "Paste the Discord webhook URL"; aws ssm put-parameter --profile nightwatch --name /nightwatch/discord/webhook_url --type SecureString --value $url --overwrite; Remove-Variable url
+   ```
+
+   The first line stops AWS CLI v1 from downloading `https://` values instead of storing them.
+   Terraform never sees the URL.
+
+4. **Fill in your settings.** Copy `envs/dev/terraform.tfvars.example` to `envs/dev/terraform.tfvars`
    and set `budget_alert_email`.
 
-4. **Build the environment.**
+5. **Build the environment.**
 
    ```bash
    make init
@@ -49,7 +62,7 @@ Run the `make` commands from Git Bash in the repository root.
    make apply
    ```
 
-5. **Connect GitHub Actions.** Save the outputs as repository settings:
+6. **Connect GitHub Actions.** Save the outputs as repository settings:
 
    ```bash
    gh variable set AWS_DEPLOY_ROLE_ARN --body "$(terraform -chdir=infra/envs/dev output -raw github_deploy_role_arn)"
@@ -65,7 +78,7 @@ Run the `make` commands from Git Bash in the repository root.
    from `gh api repos/OWNER/REPO/actions/oidc/customization/sub --jq .sub_claim_prefix`. GitHub signs
    tokens with immutable owner and repo IDs, and the roles trust only that exact subject.
 
-6. **Ship code.** Any merge to `main` that touches `shoplite/` now deploys a new version. You can also
+7. **Ship code.** Any merge to `main` that touches `shoplite/` now deploys a new version. You can also
    start one by hand with **Actions → Deploy ShopLite → Run workflow**.
 
 ## Tearing down

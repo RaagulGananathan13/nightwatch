@@ -15,6 +15,14 @@ output "alarm_names" {
   value = module.alarms.alarm_names
 }
 
+output "nightwatch_table" {
+  value = module.nightwatch_core.table_name
+}
+
+output "ingest_function" {
+  value = module.nightwatch_core.ingest_function_name
+}
+
 output "github_deploy_role_arn" {
   description = "Save as repo variable AWS_DEPLOY_ROLE_ARN."
   value       = module.iam.deploy_role_arn

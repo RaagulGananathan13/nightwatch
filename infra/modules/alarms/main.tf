@@ -19,7 +19,7 @@ resource "aws_cloudwatch_metric_alarm" "error_rate" {
   evaluation_periods  = 1
   datapoints_to_alarm = 1
   treat_missing_data  = "notBreaching"
-  tags                = local.tags
+  tags                = merge(local.tags, { "nightwatch:severity" = "high" })
 
   metric_query {
     id          = "rate"
@@ -66,7 +66,7 @@ resource "aws_cloudwatch_metric_alarm" "latency_p95" {
   evaluation_periods  = 2
   datapoints_to_alarm = 2
   treat_missing_data  = "notBreaching"
-  tags                = local.tags
+  tags                = merge(local.tags, { "nightwatch:severity" = "medium" })
 }
 
 resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
@@ -82,7 +82,7 @@ resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
   evaluation_periods  = 1
   datapoints_to_alarm = 1
   treat_missing_data  = "notBreaching"
-  tags                = local.tags
+  tags                = merge(local.tags, { "nightwatch:severity" = "high" })
 }
 
 resource "aws_cloudwatch_metric_alarm" "lambda_throttles" {
@@ -98,7 +98,7 @@ resource "aws_cloudwatch_metric_alarm" "lambda_throttles" {
   evaluation_periods  = 1
   datapoints_to_alarm = 1
   treat_missing_data  = "notBreaching"
-  tags                = local.tags
+  tags                = merge(local.tags, { "nightwatch:severity" = "high" })
 }
 
 resource "aws_cloudwatch_metric_alarm" "dynamodb_throttles" {
@@ -109,7 +109,7 @@ resource "aws_cloudwatch_metric_alarm" "dynamodb_throttles" {
   evaluation_periods  = 1
   datapoints_to_alarm = 1
   treat_missing_data  = "notBreaching"
-  tags                = local.tags
+  tags                = merge(local.tags, { "nightwatch:severity" = "medium" })
 
   metric_query {
     id          = "throttled"

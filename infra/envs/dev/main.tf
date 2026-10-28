@@ -37,6 +37,13 @@ module "shoplite" {
   canary_schedule     = var.canary_schedule
 }
 
+module "nightwatch_core" {
+  source              = "../../modules/nightwatch-core"
+  package_path        = "${path.root}/../../../.build/nightwatch.zip"
+  layer_path          = "${path.root}/../../../.build/nightwatch-deps.zip"
+  boundary_policy_arn = local.boundary_policy_arn
+}
+
 module "alarms" {
   source        = "../../modules/alarms"
   service       = "shoplite"
@@ -58,8 +65,8 @@ module "iam" {
 # share these allowances, so leave headroom (ADR 0002, ADR 0007).
 
 locals {
-  dynamodb_read_units  = module.shoplite.provisioned_capacity.read
-  dynamodb_write_units = module.shoplite.provisioned_capacity.write
+  dynamodb_read_units  = module.shoplite.provisioned_capacity.read + module.nightwatch_core.provisioned_capacity.read
+  dynamodb_write_units = module.shoplite.provisioned_capacity.write + module.nightwatch_core.provisioned_capacity.write
   alarm_metrics        = module.alarms.alarm_metric_count
 }
 

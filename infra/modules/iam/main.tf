@@ -148,6 +148,8 @@ data "aws_iam_policy_document" "plan" {
       "lambda:ListVersionsByFunction",
       "logs:ListTagsForResource",
       "scheduler:GetSchedule",
+      "sqs:GetQueueAttributes",
+      "sqs:ListQueueTags",
       "ssm:GetParameter",
       "ssm:ListTagsForResource",
       "states:Describe*",
@@ -168,6 +170,8 @@ data "aws_iam_policy_document" "plan" {
         "arn:aws:iam::${local.account}:role/nightwatch/*",
         "arn:aws:iam::${local.account}:oidc-provider/${local.oidc_host}",
         "arn:aws:budgets::${local.account}:budget/nightwatch-*",
+        "arn:aws:lambda:${local.region}:${local.account}:layer:nightwatch-*",
+        "arn:aws:sqs:${local.region}:${local.account}:nightwatch-*",
       ],
     )
   }
