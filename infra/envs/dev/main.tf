@@ -46,7 +46,7 @@ module "alarms" {
 
 module "iam" {
   source                   = "../../modules/iam"
-  github_repo              = var.github_repo
+  github_subject_prefix    = var.github_subject_prefix
   create_oidc_provider     = var.create_github_oidc_provider
   boundary_policy_arn      = local.boundary_policy_arn
   deployable_function_arns = [module.shoplite.function_arn]

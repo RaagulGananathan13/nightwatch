@@ -10,6 +10,12 @@ variable "github_repo" {
   default     = "RaagulGananathan13/nightwatch"
 }
 
+variable "github_subject_prefix" {
+  description = "OIDC subject prefix GitHub uses for this repo (immutable IDs). See modules/iam."
+  type        = string
+  default     = "repo:RaagulGananathan13@181767902/nightwatch@1436929923"
+}
+
 variable "create_github_oidc_provider" {
   description = "Set false if the CloudShell script said a GitHub OIDC provider already exists."
   type        = bool

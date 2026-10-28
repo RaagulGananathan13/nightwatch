@@ -6,6 +6,10 @@
 #                  requests from forks get no OIDC token at all.
 #
 # Both roles carry the NightWatchBoundary permissions boundary like every other role.
+#
+# GitHub signs tokens with an *immutable* subject that includes the owner and repository IDs,
+# e.g. repo:owner@123/name@456:environment:dev. Trusting only that form means a repository
+# re-created under the same name later can never inherit this access.
 
 locals {
   oidc_host         = "token.actions.githubusercontent.com"
@@ -26,8 +30,8 @@ data "aws_iam_openid_connect_provider" "github" {
 
 data "aws_iam_policy_document" "trust" {
   for_each = {
-    deploy = "repo:${var.github_repo}:environment:${var.deploy_environment}"
-    plan   = "repo:${var.github_repo}:pull_request"
+    deploy = "${var.github_subject_prefix}:environment:${var.deploy_environment}"
+    plan   = "${var.github_subject_prefix}:pull_request"
   }
 
   statement {

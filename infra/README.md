@@ -61,6 +61,9 @@ Run the `make` commands from Git Bash in the repository root.
 
    Then create the `dev` environment under **Settings → Environments** and limit it to the `main`
    branch. The deploy role only trusts jobs in that environment.
+   If you forked the repo, first set `github_subject_prefix` in `terraform.tfvars` to your repo's value,
+   from `gh api repos/OWNER/REPO/actions/oidc/customization/sub --jq .sub_claim_prefix`. GitHub signs
+   tokens with immutable owner and repo IDs, and the roles trust only that exact subject.
 
 6. **Ship code.** Any merge to `main` that touches `shoplite/` now deploys a new version. You can also
    start one by hand with **Actions → Deploy ShopLite → Run workflow**.

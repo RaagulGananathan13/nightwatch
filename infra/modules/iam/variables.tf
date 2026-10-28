@@ -1,10 +1,10 @@
-variable "github_repo" {
-  description = "owner/name of the GitHub repository allowed to assume these roles."
+variable "github_subject_prefix" {
+  description = "The repository's OIDC subject prefix: gh api repos/OWNER/REPO/actions/oidc/customization/sub --jq .sub_claim_prefix"
   type        = string
 
   validation {
-    condition     = can(regex("^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$", var.github_repo))
-    error_message = "Use the form owner/repository."
+    condition     = can(regex("^repo:[A-Za-z0-9-]+@[0-9]+/[A-Za-z0-9._-]+@[0-9]+$", var.github_subject_prefix))
+    error_message = "Use the immutable form repo:owner@<owner id>/name@<repo id>."
   }
 }
 
