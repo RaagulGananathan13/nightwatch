@@ -1,0 +1,1 @@
+"""ShopLite demo app tests."""
