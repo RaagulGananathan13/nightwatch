@@ -12,9 +12,9 @@ always-free services and free LLM tiers.
 [![CI](https://github.com/RaagulGananathan13/nightwatch/actions/workflows/ci.yml/badge.svg)](https://github.com/RaagulGananathan13/nightwatch/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-> **Status: Phase 1 of 9.** Foundations are done. The Phase 1 infrastructure (budget alert,
-> GitHub OIDC, the ShopLite demo app and its alarms) is written and tested but not yet deployed
-> to AWS. See the [roadmap](#roadmap) and the [infrastructure guide](infra/README.md).
+> **Status: Phase 1 of 9 done.** The ShopLite demo app, its five alarms, a $1 budget alert and
+> keyless GitHub deploys run in AWS at $0. NightWatch itself (alert ingest and the agent) starts in
+> Phase 2. See the [roadmap](#roadmap) and the [infrastructure guide](infra/README.md).
 
 ## How it works
 
@@ -60,7 +60,7 @@ Phase 9 is tagged `v1.0`.
 | Phase | What ships | Status |
 |---|---|---|
 | 0 | Repository, tooling, CI | Done |
-| 1 | Terraform base, $1 budget alert, GitHub OIDC, ShopLite demo app and its alarms | Built, awaiting deploy |
+| 1 | Terraform base, $1 budget alert, GitHub OIDC, ShopLite demo app and its alarms | Done |
 | 2 | Alert ingest, incident dedupe, Discord notifications, first chaos script | Planned |
 | 3 | Investigation agent, evidence ledger, hallucination guard | Planned |
 | 4 | Runbooks, approval buttons, remediation, audit log, kill switch | Planned |
