@@ -12,9 +12,10 @@ always-free services and free LLM tiers.
 [![CI](https://github.com/RaagulGananathan13/nightwatch/actions/workflows/ci.yml/badge.svg)](https://github.com/RaagulGananathan13/nightwatch/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-> **Status: Phase 1 of 9 done.** The ShopLite demo app, its five alarms, a $1 budget alert and
-> keyless GitHub deploys run in AWS at $0. NightWatch itself (alert ingest and the agent) starts in
-> Phase 2. See the [roadmap](#roadmap) and the [infrastructure guide](infra/README.md).
+> **Status: Phase 2 of 9.** ShopLite, its alarms, a $1 budget alert and keyless GitHub deploys run
+> in AWS at $0. Phase 2 (alert ingest, one-incident-per-service correlation and Discord messages)
+> is built and tested and is being deployed. See the [roadmap](#roadmap) and the
+> [infrastructure guide](infra/README.md).
 
 ## How it works
 
@@ -61,7 +62,7 @@ Phase 9 is tagged `v1.0`.
 |---|---|---|
 | 0 | Repository, tooling, CI | Done |
 | 1 | Terraform base, $1 budget alert, GitHub OIDC, ShopLite demo app and its alarms | Done |
-| 2 | Alert ingest, incident dedupe, Discord notifications, first chaos script | Planned |
+| 2 | Alert ingest, incident dedupe, Discord notifications, first chaos script | Built, deploying |
 | 3 | Investigation agent, evidence ledger, hallucination guard | Planned |
 | 4 | Runbooks, approval buttons, remediation, audit log, kill switch | Planned |
 | 5 | Chaos lab and evaluation harness (accuracy, time to diagnosis) | Planned |
@@ -101,6 +102,20 @@ make help        # list every task
 ```
 
 To deploy to your own AWS account, follow the step-by-step [infrastructure guide](infra/README.md).
+
+## See it work
+
+With the stack deployed and a Discord webhook stored (see the infrastructure guide), run:
+
+```bash
+make chaos-bad-deploy
+```
+
+ShopLite starts failing 80% of requests. Two or three alarms fire within a couple of minutes, and
+NightWatch groups them into **one** incident with **one** Discord message that it keeps editing:
+"INC-001 opened", then "3 alerts grouped into 1 incident", then "✅ resolved after 6m". The
+script restores ShopLite afterwards and reports PASS or FAIL. The [chaos lab](chaos/README.md)
+has the details.
 
 ## Repository layout
 

@@ -31,3 +31,6 @@ repository, and an infrastructure change could go live without anyone reading it
 - Rolling back is just moving the alias to an earlier version, which is the runbook in Phase 4.
 - Configuration changes made by Terraform (memory, environment variables) publish a new
   version, but it only goes live on the next deploy. This is documented in the ShopLite README.
+- **NightWatch's own Lambdas** (from Phase 2) are deployed by Terraform, which tracks each zip's
+  hash. The control plane changes less often than the demo app, its code and IAM usually
+  change together, and every change still goes through a reviewed `make plan` and `make apply`.

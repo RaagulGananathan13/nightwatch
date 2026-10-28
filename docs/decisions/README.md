@@ -14,5 +14,7 @@ true $0 per month or to close a gap found while reviewing the spec.
 | [0006](0006-restricted-deployer-and-permissions-boundary.md) | Restricted deployer user and a permissions boundary | Accepted |
 | [0007](0007-free-aws-api-calls-only.md) | Use only free AWS API calls | Accepted |
 | [0008](0008-ci-ships-code-terraform-ships-infrastructure.md) | CI ships code, reviewed Terraform ships infrastructure | Accepted |
+| [0009](0009-tenant-prefixed-single-table.md) | Every DynamoDB key starts with the tenant | Accepted |
+| [0010](0010-one-active-incident-per-service.md) | One active incident per service, with optimistic locking | Accepted |
 
 New records copy the layout of an existing one: Context, Decision, Consequences.
