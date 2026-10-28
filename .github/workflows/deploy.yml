@@ -1,0 +1,51 @@
+# Ships ShopLite on every merge to main that touches its code.
+#
+# Each deploy becomes an immutable Lambda version described with the git SHA, so NightWatch's
+# "what changed?" evidence can name the exact commit. The `dev` environment records the deploy
+# on GitHub too, and only jobs in that environment can assume the deploy role (ADR 0008).
+name: Deploy ShopLite
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "shoplite/**"
+      - "scripts/build_lambda.py"
+      - "scripts/deploy_lambda.py"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # lets the job ask GitHub for an OIDC token for AWS
+
+concurrency:
+  group: deploy-shoplite
+  cancel-in-progress: false # never stop a deploy halfway
+
+jobs:
+  deploy:
+    # Skipped until Phase 1 is applied and the role ARN is saved as a repository variable.
+    if: vars.AWS_DEPLOY_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: dev
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+      - run: pip install --quiet boto3==1.43.120
+      - name: Build
+        run: python -m scripts.build_lambda shoplite --out .build/shoplite-api.zip --version "${GITHUB_SHA::12}"
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-2
+          role-session-name: deploy-shoplite-${{ github.run_id }}
+      - name: Deploy a new version and move the live alias
+        run: >-
+          python -m scripts.deploy_lambda --function shoplite-api --zip .build/shoplite-api.zip
+          --alias live --description "sha=${GITHUB_SHA::12} run=${{ github.run_id }} by=${{ github.actor }}"
+      - name: Smoke test
+        run: python -m scripts.smoke_test --url "${{ vars.SHOPLITE_URL }}" --expect-version "${GITHUB_SHA::12}"
