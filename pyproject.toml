@@ -30,6 +30,10 @@ dev = [
   "pre-commit==4.7.0",
   "bandit[toml]==1.9.4",
   "pip-audit==2.10.1",
+  # AWS SDK and mocks for tests (Lambda provides boto3 at runtime)
+  "boto3==1.43.120",
+  "boto3-stubs[dynamodb,ssm,lambda]==1.43.120",
+  "moto[dynamodb,ssm,awslambda]==5.2.5",
 ]
 
 [project.urls]
