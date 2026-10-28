@@ -7,7 +7,7 @@ DynamoDB capacity or CloudWatch alarm metrics would go over it.
 | Folder | Purpose |
 |---|---|
 | `bootstrap/` | One-time setup: the `nightwatch-deployer` CloudShell script, its permission policy, and the S3 bucket for Terraform state |
-| `modules/budget` | $1 monthly budget with email alerts at the first cent, at $1, and when the forecast passes $1 |
+| `modules/budget` | $1 monthly budget on NightWatch's services (Lambda, DynamoDB, Step Functions, CloudWatch, S3), emailing at the first cent, at $1, and when the forecast passes $1 |
 | `modules/iam` | GitHub OIDC trust plus two roles: `github-deploy` (ships code) and `github-plan` (read-only) |
 | `modules/shoplite` | The demo store: DynamoDB table, Lambda with `live` alias and IAM-auth URL, flags parameter, canary |
 | `modules/alarms` | The five ShopLite alarms (7 of the 10 free alarm metrics) |

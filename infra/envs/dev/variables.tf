@@ -29,9 +29,16 @@ variable "budget_limit_usd" {
 }
 
 variable "budget_services" {
-  description = "Limit the budget to these services (Cost Explorer names). Empty means the whole account."
+  description = "Services the budget counts (Cost Explorer names). Empty means the whole account."
   type        = list(string)
-  default     = []
+  # NightWatch's own services, so other projects in the same account don't trigger alerts.
+  default = [
+    "AWS Lambda",
+    "Amazon DynamoDB",
+    "AWS Step Functions",
+    "AmazonCloudWatch",
+    "Amazon Simple Storage Service",
+  ]
 }
 
 variable "canary_enabled" {
