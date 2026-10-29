@@ -87,7 +87,29 @@ Run the `make` commands from Git Bash in the repository root.
    from `gh api repos/OWNER/REPO/actions/oidc/customization/sub --jq .sub_claim_prefix`. GitHub signs
    tokens with immutable owner and repo IDs, and the roles trust only that exact subject.
 
-7. **Ship code.** Any merge to `main` that touches `shoplite/` now deploys a new version. You can also
+7. **Turn on approval buttons (Phase 4).** Approval cards are posted by a Discord bot, because
+   webhook messages can't carry buttons. In the [Developer Portal](https://discord.com/developers/applications),
+   create an application, then go to **Bot → Reset Token** and add the bot to your server with the
+   **Send Messages** permission. Store the token the same way as the webhook:
+
+   ```powershell
+   $token = Read-Host "Paste the bot token"; aws ssm put-parameter --profile nightwatch --name /nightwatch/discord/bot_token --type SecureString --value $token --overwrite; Remove-Variable token
+   ```
+
+   Then complete these settings:
+   - In `terraform.tfvars`, set `discord_channel_id` (your #incidents channel) and
+     `discord_public_key` (on the application's **General Information** page).
+   - In `nightwatch/services.yaml`, list your Discord user id under `approvers`.
+
+   After `make apply`, run `make discord-endpoint`. It saves the interactions Lambda's URL as the
+   application's **Interactions Endpoint URL**, and Discord tests the URL before accepting it.
+   To stop every fix at any time:
+
+   ```bash
+   aws ssm put-parameter --profile nightwatch --name /nightwatch/kill_switch --value true --overwrite
+   ```
+
+8. **Ship code.** Any merge to `main` that touches `shoplite/` now deploys a new version. You can also
    start one by hand with **Actions → Deploy ShopLite → Run workflow**.
 
 ## Tearing down

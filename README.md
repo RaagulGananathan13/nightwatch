@@ -12,10 +12,13 @@ always-free services and free LLM tiers.
 [![CI](https://github.com/RaagulGananathan13/nightwatch/actions/workflows/ci.yml/badge.svg)](https://github.com/RaagulGananathan13/nightwatch/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-> **Status: Phase 3 of 9 done.** NightWatch groups alarms into one incident per service, then an
-> AI agent gathers evidence and posts a diagnosis that cites it. In live tests the diagnosis arrived
-> 41 seconds after the alarm and named the exact bad commit, all at $0. Next is approval-gated
-> remediation (Phase 4). See the [roadmap](#roadmap) and the [infrastructure guide](infra/README.md).
+> **Status: Phase 4 of 9 done.** NightWatch groups alarms into one incident per service, then an
+> AI agent gathers evidence and posts a diagnosis that cites it. When the evidence matches a
+> reviewed runbook, it proposes the fix, and the fix runs only after a human clicks **Approve** in
+> Discord. Then it is verified. In a live test, the diagnosis named the exact bad commit 44 seconds
+> after the alarm, and the approved rollback was verified at 0 errors, all at $0. Next is the chaos
+> lab and evaluation harness (Phase 5). See the [roadmap](#roadmap) and the
+> [infrastructure guide](infra/README.md).
 
 ## How it works
 
@@ -64,7 +67,7 @@ Phase 9 is tagged `v1.0`.
 | 1 | Terraform base, $1 budget alert, GitHub OIDC, ShopLite demo app and its alarms | Done |
 | 2 | Alert ingest, incident dedupe, Discord notifications, first chaos script | Done |
 | 3 | Investigation agent, evidence ledger, hallucination guard | Done |
-| 4 | Runbooks, approval buttons, remediation, audit log, kill switch | Planned |
+| 4 | Runbooks, approval buttons, remediation, audit log, kill switch | Done |
 | 5 | Chaos lab and evaluation harness (accuracy, time to diagnosis) | Planned |
 | 6 | Incident memory, auto-revert, postmortems, ChatOps commands | Planned |
 | 7 | Web dashboard (React and Cognito) | Planned |
@@ -118,6 +121,21 @@ evidence references (`[E4]`), confidence, and anything it couldn't verify. The s
 deploy back afterwards and reports PASS or FAIL. The [chaos lab](chaos/README.md) has the
 details.
 
+To let NightWatch fix it instead (Phase 4):
+
+```bash
+make chaos-fix
+```
+
+The bad version stays live. Under the incident's message, NightWatch posts a **proposed fix**:
+roll the `live` alias back to the version that was live before the deploy. The card shows the
+exact change, why (the evidence), the blast radius, how it will be verified, and how it can be
+undone. It pings the approvers listed in `services.yaml`, and the fix runs only when one of
+them clicks **Approve**. NightWatch then checks the error metric for 2 minutes and undoes its
+own fix if things got worse. **Reject** changes nothing. Setting `/nightwatch/kill_switch` to
+`true` stops every fix ([ADR 0012](docs/decisions/0012-approval-gated-remediation.md),
+[runbooks](runbooks/README.md)).
+
 ### Measured so far
 
 Real runs against the deployed stack on 2026-10-28. Full evaluation numbers arrive with the
@@ -149,6 +167,25 @@ model quoted the alarm's 92% error rate while citing other evidence. The guard n
 mis-cited facts that exist in the ledger, and still rejects facts found nowhere
 ([ADR 0011](docs/decisions/0011-evidence-ledger-guard-and-workflow.md)).
 
+**Phase 4, approved fix (2026-10-29, `make chaos-fix`).** Commit `79085874d59d` went live as
+ShopLite version 10, replacing version 9. Times are from INC-005's audit log:
+
+| Step | Time after the alarm |
+|---|---|
+| Diagnosis posted, naming version 10 and its commit (verified, 94%) | 44 s |
+| Fix proposed and approval card posted: roll `live` back from 10 to 9 | 46 s |
+| Approve clicked (a human took about 5 minutes) | 5 min 44 s |
+| **Rollback done** | **2.5 s after the click** |
+| Both alarms recovered and the incident resolved | 97 s after the fix |
+| **Verified**: `Errors` were 0, 0, 0 in the 3 full minutes after the fix, down from 15 a minute | 3 min 8 s after the fix |
+
+The rollback target came from the evidence, not the model: the deploy had recorded `prev=9`.
+The version numbered just before it isn't always a good build. The audit log shows the whole chain:
+`remediation_proposed`, `approval_requested`, `approval_decided` (who and when),
+`remediation_executed` (state before and after), `remediation_verified`. Rejecting, double clicks,
+clicks from non-approvers, forged or replayed requests, the kill switch and auto-undo are covered by
+unit tests ([ADR 0012](docs/decisions/0012-approval-gated-remediation.md)).
+
 ## Repository layout
 
 ```text
@@ -156,7 +193,7 @@ mis-cited facts that exist in the ledger, and still rejects facts found nowhere
 ├── shoplite/            # demo app NightWatch watches (Phase 1)
 ├── infra/               # Terraform: bootstrap, modules, envs/dev
 ├── runbooks/            # approved fixes as YAML (Phase 4)
-├── stepfunctions/       # incident workflow definition (Phase 3)
+├── stepfunctions/       # incident workflow: investigate, approve, fix, verify
 ├── chaos/               # failure-injection scenarios with ground truth
 ├── eval/                # evaluation harness and results
 ├── dashboard/           # React web dashboard (Phase 7)
