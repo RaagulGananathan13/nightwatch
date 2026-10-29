@@ -68,8 +68,10 @@ class Scenario:
     slug: str = ""  # short name, e.g. "bad-deploy"
     fix: str | None = None  # the runbook that fixes it
     minutes: float = 4.0  # how long the fault stays on
-    parallel: int = 1  # requests sent at once in each round (load, for throttling)
+    parallel: int = 1  # requests sent at once in each round
     pause: float = 2.0  # seconds between rounds
+    # Sends one round of traffic another way (e.g. from inside AWS) and returns the statuses.
+    traffic: Callable[[], list[int]] | None = None
 
 
 @dataclass
@@ -125,7 +127,7 @@ def execute(
     try:
         deadline = clock() + (minutes or scenario.minutes) * 60
         next_check = clock()
-        with _Traffic(lab, scenario.parallel) as traffic:
+        with _Traffic(lab, scenario) as traffic:
             while clock() < deadline:
                 statuses.update(traffic.round())
                 if clock() >= next_check:
@@ -174,7 +176,7 @@ def run_fix(
     try:
         deadline = clock() + wait_minutes * 60
         next_check = clock()
-        with _Traffic(lab, scenario.parallel) as traffic:
+        with _Traffic(lab, scenario) as traffic:
             while clock() < deadline:
                 statuses.update(traffic.round())
                 if clock() >= next_check:
@@ -204,11 +206,13 @@ def run_fix(
 
 
 class _Traffic:
-    """Sends GET /products: one request per round, or ``parallel`` at once for load."""
+    """Sends GET /products: one request per round, ``parallel`` at once, or the scenario's own
+    traffic source."""
 
-    def __init__(self, lab: LabLike, parallel: int) -> None:
+    def __init__(self, lab: LabLike, scenario: Scenario) -> None:
         self._lab = lab
-        self._parallel = max(1, parallel)
+        self._parallel = max(1, scenario.parallel)
+        self._custom = scenario.traffic
         self._pool: ThreadPoolExecutor | None = None
 
     def __enter__(self) -> _Traffic:
@@ -222,6 +226,8 @@ class _Traffic:
             self._pool.shutdown(wait=True)
 
     def round(self) -> list[int]:
+        if self._custom:
+            return self._custom()
         if self._pool is None:
             return [self._lab.request("GET", "/products")]
         futures = [

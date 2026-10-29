@@ -62,11 +62,12 @@ def test_naming_only_the_symptom_does_not_count(name: str) -> None:
     assert mentions(SYMPTOM_ONLY[name], SCENARIOS[name](lab).expect) is None
 
 
-def test_throttling_sends_load_in_parallel() -> None:
+def test_throttling_load_comes_from_the_canary_inside_aws() -> None:
     time, lines = FakeTime(), list[str]()
     lab = FakeLab(time, diagnosis=GOOD["dynamodb-throttle"])
     go(lab, time, "dynamodb-throttle", lines)
-    assert lab.requests > 4 * 4 * 60  # 4 at a time, every 0.2 s, for 4 minutes
+    assert lab.loads >= 10  # a 20 s canary run every ~21 s for 5 minutes
+    assert lab.requests == 0  # none from this machine
     assert lab.history[0] == "read=1"
     assert lab.history[-1] == "read=5"
 

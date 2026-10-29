@@ -27,6 +27,7 @@ class ScenarioLab(bad_deploy.DeployLab, error_flag.FlagLab, Protocol):
     def set_live_version(self, version: str) -> None: ...
     def read_capacity(self) -> int: ...
     def set_read_capacity(self, units: int) -> None: ...
+    def load(self, seconds: float, parallel: int) -> list[int]: ...
 
 
 def flag_fault(
@@ -121,11 +122,11 @@ def dynamodb_throttle(lab: ScenarioLab) -> Scenario:
         still_broken=lambda: lab.read_capacity() == 1,
         slug="dynamodb-throttle",
         fix="raise-dynamodb-capacity",
-        # DynamoDB banks up to 5 minutes of unused capacity as burst credit, so it takes
-        # steady load (about 20 requests a second) and a few minutes before reads throttle.
-        parallel=4,
-        pause=0.1,
-        minutes=6.0,
+        # DynamoDB banks up to 5 minutes of unused capacity as burst credit, so it takes steady
+        # load and a minute or two before reads throttle. The canary sends it from inside AWS.
+        traffic=lambda: lab.load(seconds=20, parallel=4),
+        pause=1.0,
+        minutes=5.0,
     )
 
 

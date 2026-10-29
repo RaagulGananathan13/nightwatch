@@ -27,6 +27,7 @@ from shoplite.canary import signed_request
 FLAGS_PARAM = "/shoplite/flags"
 FLAP_WINDOW = timedelta(minutes=10)  # matches nightwatch-ingest's FLAP_WINDOW_MINUTES
 FUNCTION = "shoplite-api"
+CANARY = "shoplite-canary"
 SHOPLITE_TABLE = "shoplite"
 KILL_SWITCH = "/nightwatch/kill_switch"
 REPO = Path(__file__).resolve().parents[1]
@@ -73,6 +74,14 @@ class Lab:
             raise RuntimeError("no AWS credentials; is the nightwatch profile set up?")
         status, _ = signed_request(method, self._url + path, credentials, self.region, body)
         return status
+
+    def load(self, seconds: float, parallel: int) -> list[int]:
+        """Heavy traffic sent from inside AWS by the canary, so it doesn't depend on this
+        machine's network. Blocks for ``seconds``; returns every request's HTTP status."""
+        payload = json.dumps({"load_seconds": seconds, "parallel": parallel}).encode()
+        reply = self.session.client("lambda").invoke(FunctionName=CANARY, Payload=payload)
+        statuses = (json.loads(reply["Payload"].read() or b"{}") or {}).get("statuses") or {}
+        return [int(code) for code, count in statuses.items() for _ in range(int(count))]
 
     def build_buggy_shoplite(self, subject: str) -> tuple[str, bytes]:
         """Commit the bug in a throwaway git worktree and build it. Returns (sha, zip bytes).
@@ -187,12 +196,16 @@ class Lab:
     # NightWatch ------------------------------------------------------------------
 
     def incidents_since(self, service: str, since: datetime) -> list[Incident]:
+        """The service's incidents opened since ``since``, each read once and consistently.
+
+        The status index is eventually consistent: right after an incident resolves, it can
+        appear under both "open" and "resolved". So collect ids there, then read each item.
+        """
         store = IncidentStore(self.table, self.tenant, self.session.client("dynamodb"))
-        found = store.list_incidents("open") + store.list_incidents("resolved")
-        return sorted(
-            (i for i in found if i.service == service and i.opened_at >= since),
-            key=lambda incident: incident.opened_at,
-        )
+        listed = store.list_incidents("open") + store.list_incidents("resolved")
+        ids = {i.id for i in listed if i.service == service and i.opened_at >= since}
+        found = [store.get_incident(incident_id) for incident_id in ids]
+        return sorted((i for i in found if i), key=lambda incident: incident.opened_at)
 
     def incident_open(self, service: str) -> bool:
         store = IncidentStore(self.table, self.tenant, self.session.client("dynamodb"))

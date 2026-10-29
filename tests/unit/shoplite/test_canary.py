@@ -73,3 +73,15 @@ def test_canary_walks_the_customer_journey(
     ]
     assert result["ok"] is False  # /health failed, and the canary said so without raising
     assert json.loads(capsys.readouterr().out)["level"] == "WARN"
+
+
+def test_load_mode_counts_every_status_and_caps_itself(monkeypatch: pytest.MonkeyPatch) -> None:
+    ticks = iter(range(10_000))
+    monkeypatch.setattr(canary.time, "monotonic", lambda: next(ticks) * 0.5)
+    monkeypatch.setattr(canary, "signed_request", lambda *args, **kwargs: (502, None))
+    credentials = Credentials("test-key", "test-secret")
+    summary = canary.load("https://example.com", credentials, "us-east-2", 600, 50)
+    assert (summary["seconds"], summary["parallel"]) == (25.0, 4)  # capped
+    assert summary["msg"] == "load"
+    assert set(summary["statuses"]) == {"502"}
+    assert summary["statuses"]["502"] > 0

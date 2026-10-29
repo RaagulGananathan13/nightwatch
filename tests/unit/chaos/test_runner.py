@@ -52,6 +52,7 @@ class FakeLab:
         self.open_polls = 0  # an earlier incident stays open for this many checks
         self.capacity = 5
         self.env = {"TABLE_NAME": "shoplite"}
+        self.loads = 0
 
     # ShopLite
     def get_flags(self) -> dict[str, Any]:
@@ -88,6 +89,11 @@ class FakeLab:
     def set_read_capacity(self, units: int) -> None:
         self.capacity = units
         self.history.append(f"read={units}")
+
+    def load(self, seconds: float, parallel: int) -> list[int]:
+        self.time.sleep(seconds)  # the canary's run takes this long
+        self.loads += 1
+        return [502 if self.broken() else 200] * 100
 
     def broken(self) -> bool:
         return bool(self.flags) or self.live in ("5", "6") or self.capacity == 1
