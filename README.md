@@ -12,10 +12,10 @@ always-free services and free LLM tiers.
 [![CI](https://github.com/RaagulGananathan13/nightwatch/actions/workflows/ci.yml/badge.svg)](https://github.com/RaagulGananathan13/nightwatch/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-> **Status: Phase 2 of 9 done.** CloudWatch alarms flow through EventBridge into NightWatch, which
-> groups them into one incident per service and keeps a single Discord message up to date, all at
-> $0. Next is the investigation agent (Phase 3). See the [roadmap](#roadmap) and the
-> [infrastructure guide](infra/README.md).
+> **Status: Phase 3 of 9.** Alarms flow into NightWatch, which groups them into one incident per
+> service and keeps a single Discord message up to date. Phase 3 (the AI investigation agent with
+> its evidence ledger and hallucination guard) is built and tested and is being deployed. See the
+> [roadmap](#roadmap) and the [infrastructure guide](infra/README.md).
 
 ## How it works
 
@@ -63,7 +63,7 @@ Phase 9 is tagged `v1.0`.
 | 0 | Repository, tooling, CI | Done |
 | 1 | Terraform base, $1 budget alert, GitHub OIDC, ShopLite demo app and its alarms | Done |
 | 2 | Alert ingest, incident dedupe, Discord notifications, first chaos script | Done |
-| 3 | Investigation agent, evidence ledger, hallucination guard | Planned |
+| 3 | Investigation agent, evidence ledger, hallucination guard | Built, deploying |
 | 4 | Runbooks, approval buttons, remediation, audit log, kill switch | Planned |
 | 5 | Chaos lab and evaluation harness (accuracy, time to diagnosis) | Planned |
 | 6 | Incident memory, auto-revert, postmortems, ChatOps commands | Planned |
@@ -111,11 +111,12 @@ With the stack deployed and a Discord webhook stored (see the infrastructure gui
 make chaos-bad-deploy
 ```
 
-ShopLite starts failing 80% of requests. Two or three alarms fire within a couple of minutes, and
-NightWatch groups them into **one** incident with **one** Discord message that it keeps editing:
-"INC-001 opened", then "3 alerts grouped into 1 incident", then "✅ resolved after 6m". The
-script restores ShopLite afterwards and reports PASS or FAIL. The [chaos lab](chaos/README.md)
-has the details.
+A real commit with a bug is deployed to ShopLite as a new Lambda version. The alarms fire, and
+NightWatch groups them into **one** incident with **one** Discord message that it keeps editing.
+About a minute later the message gains a **diagnosis** that names the commit, with numbered
+evidence references (`[E4]`), confidence, and anything it couldn't verify. The script rolls the
+deploy back afterwards and reports PASS or FAIL. The [chaos lab](chaos/README.md) has the
+details.
 
 ### Measured so far
 

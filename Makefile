@@ -26,7 +26,7 @@ export AWS_PROFILE ?= nightwatch
 GIT_SHA := $(shell git rev-parse --short=12 HEAD 2>/dev/null || echo dev)
 
 .PHONY: help install fmt lint typecheck test check security tf-fmt tf-check clean build
-.PHONY: bootstrap-plan bootstrap-apply init plan apply destroy chaos-bad-deploy
+.PHONY: bootstrap-plan bootstrap-apply init plan apply destroy chaos-bad-deploy chaos-error-flag
 
 help: ## Show this list
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-15s %s\n", $$1, $$2}'
@@ -99,8 +99,11 @@ destroy: ## Delete everything in dev (asks before deleting)
 
 # --- Chaos lab (uses the nightwatch profile; always restores ShopLite afterwards) ---
 
-chaos-bad-deploy: ## Turn on ShopLite's error flag for 4 minutes and check NightWatch's response
+chaos-bad-deploy: ## Deploy a buggy ShopLite commit for 4 minutes, check the diagnosis names it
 	$(PY) -m chaos.bad_deploy
+
+chaos-error-flag: ## Turn on ShopLite's error flag for 4 minutes and check NightWatch's response
+	$(PY) -m chaos.error_flag
 
 clean: ## Remove caches and build output
 	rm -rf .pytest_cache .mypy_cache .ruff_cache .coverage htmlcov build dist .build *.egg-info

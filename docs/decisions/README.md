@@ -16,5 +16,6 @@ true $0 per month or to close a gap found while reviewing the spec.
 | [0008](0008-ci-ships-code-terraform-ships-infrastructure.md) | CI ships code, reviewed Terraform ships infrastructure | Accepted |
 | [0009](0009-tenant-prefixed-single-table.md) | Every DynamoDB key starts with the tenant | Accepted |
 | [0010](0010-one-active-incident-per-service.md) | One active incident per service, with optimistic locking | Accepted |
+| [0011](0011-evidence-ledger-guard-and-workflow.md) | Evidence ledger, hallucination guard and the investigation workflow | Accepted |
 
 New records copy the layout of an existing one: Context, Decision, Consequences.
