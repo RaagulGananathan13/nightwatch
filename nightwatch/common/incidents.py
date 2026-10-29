@@ -18,6 +18,7 @@ alarm joins the first incident instead of opening another.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -297,6 +298,22 @@ class IncidentStore:
             return False
         return True
 
+    def set_investigation(
+        self, incident_id: str, status: str, result: dict[str, Any] | None = None
+    ) -> None:
+        """Record an investigation's progress and, when done, its result (as JSON text)."""
+        expression, values = "SET investigation = :s", {":s": _s(status)}
+        if result is not None:
+            expression += ", investigation_result = :r"
+            values[":r"] = _s(json.dumps(result, default=str))
+        self.client.update_item(
+            TableName=self.table,
+            Key=self._key(f"INC#{incident_id}"),
+            UpdateExpression=expression,
+            ConditionExpression="attribute_exists(PK)",
+            ExpressionAttributeValues=values,
+        )
+
     # ---------------------------------------------------------------------- helpers
 
     @property
@@ -323,6 +340,8 @@ class IncidentStore:
             name: to_iso(value) if isinstance(value, datetime) else value
             for name, value in incident.model_dump(exclude_none=True).items()
         }
+        if "investigation_result" in fields:
+            fields["investigation_result"] = json.dumps(fields["investigation_result"])
         return _item(
             {
                 "PK": self._pk,

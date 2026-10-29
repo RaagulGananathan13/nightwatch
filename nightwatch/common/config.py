@@ -7,6 +7,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import timedelta
 
+DEFAULT_LLM_PROVIDERS = "groq:openai/gpt-oss-120b,groq:qwen/qwen3.8-27b"
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -18,6 +20,15 @@ class Settings:
     flap_window: timedelta = timedelta(minutes=10)
     # An open incident with no new alert for this long stops collecting new alerts.
     stale_after: timedelta = timedelta(hours=6)
+    # The incident workflow (Step Functions). Empty means no automatic investigation.
+    state_machine_arn: str = ""
+    # LLMs to try in order, "<provider>:<model>" (ADR 0003). Keys live in SSM.
+    llm_providers: str = DEFAULT_LLM_PROVIDERS
+    groq_key_param: str = "/nightwatch/llm/groq_api_key"
+    gemini_key_param: str = "/nightwatch/llm/gemini_api_key"
+    # Requests per provider per day, kept well under the free tier.
+    llm_daily_requests: int = 300
+    investigation_seconds: float = 90.0
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> Settings:
@@ -28,4 +39,10 @@ class Settings:
             discord_webhook_param=env.get("DISCORD_WEBHOOK_PARAM", ""),
             flap_window=timedelta(minutes=float(env.get("FLAP_WINDOW_MINUTES", "10"))),
             stale_after=timedelta(hours=float(env.get("STALE_AFTER_HOURS", "6"))),
+            state_machine_arn=env.get("STATE_MACHINE_ARN", ""),
+            llm_providers=env.get("LLM_PROVIDERS", DEFAULT_LLM_PROVIDERS),
+            groq_key_param=env.get("GROQ_KEY_PARAM", "/nightwatch/llm/groq_api_key"),
+            gemini_key_param=env.get("GEMINI_KEY_PARAM", "/nightwatch/llm/gemini_api_key"),
+            llm_daily_requests=int(env.get("LLM_DAILY_REQUESTS", "300")),
+            investigation_seconds=float(env.get("INVESTIGATION_SECONDS", "90")),
         )

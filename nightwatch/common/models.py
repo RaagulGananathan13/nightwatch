@@ -2,16 +2,22 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
 AlertState = Literal["ALARM", "OK"]
 Severity = Literal["critical", "high", "medium", "low"]
 IncidentStatus = Literal["open", "investigating", "awaiting_approval", "remediating", "resolved"]
+InvestigationStatus = Literal["running", "done", "failed"]
 
 SEVERITY_RANK: dict[str, int] = {"low": 1, "medium": 2, "high": 3, "critical": 4}
+
+
+def _json_or_none(value: Any) -> Any:
+    return json.loads(value) if isinstance(value, str) else value
 
 
 class MetricRef(BaseModel):
@@ -63,6 +69,9 @@ class Incident(BaseModel):
     alarms: dict[str, AlertState] = Field(default_factory=dict)  # latest state of each alarm
     reopen_count: int = 0
     discord_message_id: str | None = None
+    investigation: InvestigationStatus | None = None
+    # nightwatch.agent.models.Investigation, stored as JSON text (DynamoDB has no floats).
+    investigation_result: Annotated[dict[str, Any] | None, BeforeValidator(_json_or_none)] = None
 
     @property
     def label(self) -> str:
