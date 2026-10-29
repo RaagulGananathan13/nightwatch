@@ -12,10 +12,10 @@ always-free services and free LLM tiers.
 [![CI](https://github.com/RaagulGananathan13/nightwatch/actions/workflows/ci.yml/badge.svg)](https://github.com/RaagulGananathan13/nightwatch/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-> **Status: Phase 3 of 9.** Alarms flow into NightWatch, which groups them into one incident per
-> service and keeps a single Discord message up to date. Phase 3 (the AI investigation agent with
-> its evidence ledger and hallucination guard) is built and tested and is being deployed. See the
-> [roadmap](#roadmap) and the [infrastructure guide](infra/README.md).
+> **Status: Phase 3 of 9 done.** NightWatch groups alarms into one incident per service, then an
+> AI agent gathers evidence and posts a diagnosis that cites it. In live tests the diagnosis arrived
+> 41 seconds after the alarm and named the exact bad commit, all at $0. Next is approval-gated
+> remediation (Phase 4). See the [roadmap](#roadmap) and the [infrastructure guide](infra/README.md).
 
 ## How it works
 
@@ -63,7 +63,7 @@ Phase 9 is tagged `v1.0`.
 | 0 | Repository, tooling, CI | Done |
 | 1 | Terraform base, $1 budget alert, GitHub OIDC, ShopLite demo app and its alarms | Done |
 | 2 | Alert ingest, incident dedupe, Discord notifications, first chaos script | Done |
-| 3 | Investigation agent, evidence ledger, hallucination guard | Built, deploying |
+| 3 | Investigation agent, evidence ledger, hallucination guard | Done |
 | 4 | Runbooks, approval buttons, remediation, audit log, kill switch | Planned |
 | 5 | Chaos lab and evaluation harness (accuracy, time to diagnosis) | Planned |
 | 6 | Incident memory, auto-revert, postmortems, ChatOps commands | Planned |
@@ -130,6 +130,24 @@ Phase 5 harness.
 
 Run 1 exposed that function URLs don't count crashed invocations in `Url5xxCount`. The 5xx alarm
 now uses Lambda's `Errors` metric ([ADR 0001](docs/decisions/0001-function-urls-instead-of-api-gateway.md)).
+
+**Phase 3, bad deploy (2026-10-29).** A real buggy commit was deployed as ShopLite version 7:
+
+| Step | Time after the alarm |
+|---|---|
+| Discord message posted | 0.8 s |
+| Second alarm grouped into it | 21 s |
+| Investigation started (after a deliberate 30 s wait for related alarms) | 32 s |
+| **Diagnosis posted** | **41 s** |
+
+The diagnosis named version 7, commit `f4584c11d9b5` and the `KeyError` on `price`. Its top
+hypothesis was verified at 94% against 6 cited evidence items. It took one `gpt-oss-120b` call
+(3,182 tokens, 1.0 s) on Groq's free tier, and the investigation took 6.1 s in total.
+
+The run before it diagnosed the cause just as correctly, but the guard marked it unverified: the
+model quoted the alarm's 92% error rate while citing other evidence. The guard now repairs
+mis-cited facts that exist in the ledger, and still rejects facts found nowhere
+([ADR 0011](docs/decisions/0011-evidence-ledger-guard-and-workflow.md)).
 
 ## Repository layout
 
