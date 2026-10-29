@@ -8,8 +8,10 @@ import pytest
 
 from chaos import bad_deploy, error_flag
 from chaos.lab import BUG
-from chaos.runner import Scenario, run
+from chaos.runner import Scenario, run, run_fix
 from nightwatch.common.models import Incident
+from nightwatch.remediation.actions import Action
+from tests.unit.nightwatch.test_remediation import make_action
 
 START = datetime(2026, 10, 28, 10, 0, tzinfo=UTC)
 SHA = "3f2a9c1e4b5d"
@@ -63,6 +65,9 @@ class FakeLab:
         self.history.append(f"deploy {description}")
         previous, self.live = self.live, "5"
         return {"version": "5", "previous_version": previous}
+
+    def live_version(self) -> str:
+        return self.live
 
     def set_live_version(self, version: str) -> None:
         self.live = version
@@ -196,3 +201,54 @@ def test_the_bug_still_matches_shoplite_source() -> None:
         encoding="utf-8"
     )
     assert BUG[0] in source
+
+
+class FixLab(FakeLab):
+    """NightWatch proposes a rollback at 2 min; the approver decides at 3 min 20 s."""
+
+    def __init__(self, time: FakeTime, decision: str) -> None:
+        super().__init__(time)
+        self.decision = decision
+        self.fixed = False
+
+    def actions(self, incident_id: str) -> list[Action]:
+        seconds = self.time.seconds
+        if seconds < 120:
+            return []
+        status = "awaiting_approval"
+        if seconds >= 200 and self.decision == "reject":
+            status = "rejected"
+        elif seconds >= 200:
+            if not self.fixed:
+                self.fixed, self.live = True, "4"  # NightWatch's rollback
+            status = "verified" if seconds >= 400 else "executed"
+        return [make_action(status, decided_by_name="Raagul")]
+
+    def audit(self, incident_id: str) -> list[dict[str, Any]]:
+        chain = ["notification_sent", "remediation_proposed", "approval_requested"]
+        if self.time.seconds >= 200:
+            chain.append("approval_decided")
+            if self.decision == "approve":
+                chain += ["remediation_executed", "remediation_verified"]
+        return [{"event": event} for event in chain]
+
+
+def test_an_approved_fix_is_verified_and_the_chain_is_audited() -> None:
+    time, lines = FakeTime(), list[str]()
+    lab = FixLab(time, "approve")
+    code = run_fix(lab, bad_deploy.scenario(lab), out=lines.append, clock=time.clock,
+                   sleep=time.sleep, now=time.now)  # fmt: skip
+    assert code == 0, lines
+    assert any(line.startswith("PASS: approved by Raagul") for line in lines)
+    assert "remediation_proposed -> approval_requested -> approval_decided" in "\n".join(lines)
+    assert lab.live == "4"
+
+
+def test_rejecting_changes_nothing_and_the_lab_still_cleans_up() -> None:
+    time, lines = FakeTime(), list[str]()
+    lab = FixLab(time, "reject")
+    code = run_fix(lab, bad_deploy.scenario(lab), out=lines.append, clock=time.clock,
+                   sleep=time.sleep, now=time.now)  # fmt: skip
+    assert code == 0, lines
+    assert any(line.startswith("PASS: rejected by Raagul, and nothing changed") for line in lines)
+    assert lab.history[-1] == "live=4"  # the lab's own undo, not NightWatch

@@ -17,6 +17,7 @@ from nightwatch.common.audit import AuditLog
 from nightwatch.common.incidents import IncidentStore
 from nightwatch.common.models import Incident
 from nightwatch.common.timeutil import utcnow
+from nightwatch.remediation.actions import Action, ActionStore
 from scripts.build_lambda import build
 from scripts.deploy_lambda import deploy
 from shoplite.canary import signed_request
@@ -109,6 +110,10 @@ class Lab:
         result = deploy(self.session.client("lambda"), FUNCTION, code, "live", description)
         return {key: str(value) for key, value in result.items()}
 
+    def live_version(self) -> str:
+        alias = self.session.client("lambda").get_alias(FunctionName=FUNCTION, Name="live")
+        return str(alias["FunctionVersion"])
+
     def set_live_version(self, version: str) -> None:
         self.session.client("lambda").update_alias(
             FunctionName=FUNCTION, Name="live", FunctionVersion=version
@@ -132,6 +137,10 @@ class Lab:
             return 0.0
         remaining = pointer.resolved_at + FLAP_WINDOW - utcnow()
         return max(0.0, remaining.total_seconds() + 30)  # a little margin for clock skew
+
+    def actions(self, incident_id: str) -> list[Action]:
+        store = ActionStore(self.table, self.tenant, self.session.client("dynamodb"))
+        return sorted(store.for_incident(incident_id), key=lambda action: action.created_at)
 
     def audit(self, incident_id: str) -> list[dict[str, Any]]:
         log = AuditLog(self.table, self.tenant, "chaos", self.session.client("dynamodb"))

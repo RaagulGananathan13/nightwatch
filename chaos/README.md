@@ -21,3 +21,20 @@ recover and gives a verdict. It passes only if:
 
 That is the acceptance test for Phases 2 and 3. More scenarios (throttling, timeouts, memory, a
 broken environment variable, a slow dependency) arrive in Phase 5.
+
+## Let NightWatch fix it (Phase 4)
+
+| Command | What happens |
+|---|---|
+| `make chaos-fix` | The bad deploy stays live until NightWatch's rollback is approved and verified |
+| `make chaos-fix-flag` | The error flag stays on until NightWatch's flag reset is approved and verified |
+
+The fault and the traffic keep going while you decide. When the approval card appears in
+Discord, click **Approve**. The run passes if:
+- the fix ran and verification passed;
+- the audit log shows `remediation_proposed`, `approval_requested`, `approval_decided`,
+  `remediation_executed` and `remediation_verified`, in that order.
+
+Click **Reject** instead and the run passes only if nothing changed: the fault was still in
+place until the script removed it. If nobody decides within 20 minutes the script gives up. As
+always, it removes the fault at the end.

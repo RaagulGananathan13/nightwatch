@@ -13,10 +13,11 @@ import sys
 from collections.abc import Callable
 from typing import Any, Protocol
 
-from chaos.runner import Scenario, run
+from chaos.runner import Scenario, run, run_fix
 
 
 class FlagLab(Protocol):
+    def get_flags(self) -> dict[str, Any]: ...
     def set_flags(self, flags: dict[str, Any]) -> None: ...
 
 
@@ -33,6 +34,7 @@ def scenario(lab: FlagLab, error_rate: float) -> Scenario:
         ),
         inject=inject,
         expect=["/shoplite/flags", "error_rate", "feature flag"],
+        still_broken=lambda: bool(lab.get_flags()),
     )
 
 
@@ -45,10 +47,17 @@ def main() -> None:
     parser.add_argument("--error-rate", type=float, default=0.8, help="share of requests to fail")
     parser.add_argument("--minutes", type=float, default=4.0, help="how long the fault stays on")
     parser.add_argument("--profile", default="nightwatch", help="AWS CLI profile to use")
+    parser.add_argument(
+        "--let-nightwatch-fix",
+        action="store_true",
+        help="keep the flag on until NightWatch's approved fix is verified (Phase 4)",
+    )
     args = parser.parse_args()
     if not 0 < args.error_rate <= 1:
         parser.error("--error-rate must be between 0 and 1")
     lab = Lab.connect(args.profile)
+    if args.let_nightwatch_fix:
+        sys.exit(run_fix(lab, scenario(lab, args.error_rate)))
     sys.exit(run(lab, scenario(lab, args.error_rate), args.minutes))
 
 

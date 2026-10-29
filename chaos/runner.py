@@ -5,7 +5,11 @@ The verdict is the acceptance check for Phases 2 and 3:
 - an investigation finishes, and its diagnosis names what the scenario really broke (for
   example the deploy's commit SHA), with a top hypothesis the evidence guard verified.
 
-The fault is always undone, even after Ctrl+C or an error.
+``run_fix`` is the Phase 4 check. It leaves the fault in place until NightWatch's proposed fix
+ends: Approve it in Discord and it must run, ShopLite must recover and verification must pass;
+Reject it and nothing may change. The audit log must show the whole chain.
+
+The fault is always undone at the end, even after Ctrl+C or an error.
 """
 
 from __future__ import annotations
@@ -20,8 +24,17 @@ from typing import Any, Protocol
 from nightwatch.chat.cards import duration
 from nightwatch.common.models import Incident
 from nightwatch.common.timeutil import utcnow
+from nightwatch.remediation.actions import FINAL, Action
 
 SERVICE = "shoplite"
+# What a fix must leave in the audit log, in this order (spec F14).
+FIX_CHAIN = [
+    "remediation_proposed",
+    "approval_requested",
+    "approval_decided",
+    "remediation_executed",
+    "remediation_verified",
+]
 
 
 class LabLike(Protocol):
@@ -32,6 +45,10 @@ class LabLike(Protocol):
     def seconds_until_new_incident(self, service: str) -> float: ...
 
 
+class FixLabLike(LabLike, Protocol):
+    def actions(self, incident_id: str) -> list[Action]: ...
+
+
 @dataclass
 class Scenario:
     name: str
@@ -39,6 +56,23 @@ class Scenario:
     # Applies the fault (reporting through the given output function) and returns the undo.
     inject: Callable[[Callable[[str], None]], Callable[[], None]]
     expect: list[str] = field(default_factory=list)  # the diagnosis must mention one of these
+    # True while the fault is still in place; used to show that rejecting a fix changes nothing.
+    still_broken: Callable[[], bool] | None = None
+
+
+def _ready(lab: LabLike, out: Callable[[str], None], sleep: Callable[[float], None]) -> bool:
+    flags = lab.get_flags()
+    if flags:
+        out(f"ShopLite already has flags set ({flags}). Clear them first; stopping.")
+        return False
+    wait = lab.seconds_until_new_incident(SERVICE)
+    if wait:
+        out(
+            "The last incident resolved recently, so new alarms would reopen it (flap window). "
+            f"Waiting {duration(timedelta(seconds=wait))} so this run gets its own incident..."
+        )
+        sleep(wait)
+    return True
 
 
 def run(
@@ -51,17 +85,8 @@ def run(
     sleep: Callable[[float], None] = time.sleep,
     now: Callable[[], datetime] = utcnow,
 ) -> int:
-    flags = lab.get_flags()
-    if flags:
-        out(f"ShopLite already has flags set ({flags}). Clear them first; stopping.")
+    if not _ready(lab, out, sleep):
         return 2
-    wait = lab.seconds_until_new_incident(SERVICE)
-    if wait:
-        out(
-            "The last incident resolved recently, so new alarms would reopen it (flap window). "
-            f"Waiting {duration(timedelta(seconds=wait))} so this run gets its own incident..."
-        )
-        sleep(wait)
 
     started = now()
     out(f"Injecting fault: {scenario.name}. Ground truth: {scenario.ground_truth}")
@@ -84,13 +109,131 @@ def run(
         out("Fault removed: ShopLite is back to normal.")
 
     out(f"Requests sent: {sum(statuses.values())} ({_status_summary(statuses)})")
-    out(f"Waiting up to {recovery_minutes:g} min for the alarms to recover...")
-    deadline = clock() + recovery_minutes * 60
+    incidents = _wait_for_recovery(lab, started, recovery_minutes, out, clock, sleep)
+    return _verdict(lab, incidents, started, scenario, out)
+
+
+def run_fix(
+    lab: FixLabLike,
+    scenario: Scenario,
+    wait_minutes: float = 20.0,
+    recovery_minutes: float = 6.0,
+    out: Callable[[str], None] = print,
+    clock: Callable[[], float] = time.monotonic,
+    sleep: Callable[[float], None] = time.sleep,
+    now: Callable[[], datetime] = utcnow,
+) -> int:
+    """Phase 4: keep the fault (and traffic) going until NightWatch's fix is approved and
+    verified, or rejected, or ``wait_minutes`` pass. Then undo the fault regardless."""
+    if not _ready(lab, out, sleep):
+        return 2
+
+    started = now()
+    out(f"Injecting fault: {scenario.name}. Ground truth: {scenario.ground_truth}")
+    undo = scenario.inject(out)
+    out(
+        "The fault stays in place. When the approval card appears in Discord, click Approve "
+        "(or Reject, to check that nothing changes)."
+    )
+    statuses: Counter[int] = Counter()
+    shown: tuple[str, int, str | None] | None = None
+    seen: str | None = None
+    still_broken: bool | None = None
+    try:
+        deadline = clock() + wait_minutes * 60
+        next_check = clock()
+        while clock() < deadline:
+            statuses[lab.request("GET", "/products")] += 1
+            if clock() >= next_check:
+                shown = _progress(lab, started, shown, out)
+                action = _latest_action(lab, started)
+                if action and action.status != seen:
+                    seen = action.status
+                    out(f"  Fix '{action.title}' ({action.preview}): {action.status}")
+                if action and action.status in FINAL:
+                    break
+                next_check = clock() + 10
+            sleep(2)
+        else:
+            out(f"Gave up after {wait_minutes:g} min without a final answer on the fix.")
+        if scenario.still_broken:
+            still_broken = scenario.still_broken()
+    except KeyboardInterrupt:
+        out("Stopping early (Ctrl+C).")
+    finally:
+        undo()
+        out("Lab clean-up done: ShopLite is back to normal either way.")
+
+    out(f"Requests sent: {sum(statuses.values())} ({_status_summary(statuses)})")
+    incidents = _wait_for_recovery(lab, started, recovery_minutes, out, clock, sleep)
+    code = _verdict(lab, incidents, started, scenario, out)
+    return max(code, _fix_verdict(lab, incidents, still_broken, out))
+
+
+def _wait_for_recovery(
+    lab: LabLike,
+    started: datetime,
+    minutes: float,
+    out: Callable[[str], None],
+    clock: Callable[[], float],
+    sleep: Callable[[float], None],
+) -> list[Incident]:
+    out(f"Waiting up to {minutes:g} min for the alarms to recover...")
+    deadline = clock() + minutes * 60
     incidents = lab.incidents_since(SERVICE, started)
     while clock() < deadline and not (incidents and incidents[-1].status == "resolved"):
         sleep(15)
         incidents = lab.incidents_since(SERVICE, started)
-    return _verdict(lab, incidents, started, scenario, out)
+    return incidents
+
+
+def _latest_action(lab: FixLabLike, started: datetime) -> Action | None:
+    incidents = lab.incidents_since(SERVICE, started)
+    actions = lab.actions(incidents[0].id) if incidents else []
+    return actions[-1] if actions else None
+
+
+def _fix_verdict(
+    lab: FixLabLike,
+    incidents: list[Incident],
+    still_broken: bool | None,
+    out: Callable[[str], None],
+) -> int:
+    if not incidents:
+        return 1
+    actions = lab.actions(incidents[0].id)
+    if not actions:
+        out("FAIL: NightWatch did not propose a fix.")
+        return 1
+    action = actions[-1]
+    events = [entry["event"] for entry in lab.audit(incidents[0].id)]
+    chain = [event for event in events if event.startswith(("remediation_", "approval_"))]
+    out(f"Fix: {action.title} ({action.preview}) ended as '{action.status}'. {action.result}")
+    if action.verification:
+        out(f"  Verification: {action.verification.get('detail')}")
+    out(f"  Audit chain: {' -> '.join(chain) or 'empty'}")
+
+    if action.status == "verified":
+        positions = [chain.index(event) if event in chain else -1 for event in FIX_CHAIN]
+        if -1 in positions or positions != sorted(positions):
+            out(f"FAIL: the audit log should show {' -> '.join(FIX_CHAIN)}.")
+            return 1
+        out(
+            f"PASS: approved by {action.decided_by_name}, the fix ran, ShopLite recovered and "
+            "verification passed."
+        )
+        return 0
+    if action.status == "rejected":
+        if "remediation_executed" in chain or still_broken is False:
+            out("FAIL: the fix was rejected but something changed anyway.")
+            return 1
+        out(
+            f"PASS: rejected by {action.decided_by_name}, and nothing changed (the fault was "
+            "still in place until the lab removed it)."
+        )
+        return 0
+    out(f"FAIL: the fix ended as {action.status}, not verified or rejected.")
+    return 1
 
 
 def _progress(
