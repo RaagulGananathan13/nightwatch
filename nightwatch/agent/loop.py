@@ -24,7 +24,12 @@ from nightwatch.agent.providers.base import LLMResponse, LLMUnavailableError, Me
 from nightwatch.agent.providers.chain import ProviderChain
 from nightwatch.agent.rules import rule_based
 from nightwatch.agent.tools import ToolContext, catalog
-from nightwatch.agent.tools.logs import ERRORS_BY_VERSION, REQUESTS_BY_VERSION, RUNTIME_ERRORS
+from nightwatch.agent.tools.logs import (
+    ERRORS_BY_VERSION,
+    LAMBDA_REPORTS,
+    REQUESTS_BY_VERSION,
+    RUNTIME_ERRORS,
+)
 from nightwatch.common.audit import AuditLog
 from nightwatch.common.timeutil import to_iso
 
@@ -150,6 +155,7 @@ def initial_plan(ctx: ToolContext) -> list[tuple[str, dict[str, Any], str]]:
             (ERRORS_BY_VERSION, "errors_by_version"),
             (REQUESTS_BY_VERSION, "requests_by_version"),
             (RUNTIME_ERRORS, "runtime_errors"),
+            (LAMBDA_REPORTS, "lambda_reports"),
         ):
             steps.append(("query_logs", {"log_group": group, "query": query, "minutes": 30}, label))
     for metric in incident_metrics(ctx)[:3]:

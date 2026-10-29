@@ -6,6 +6,7 @@ is billed per GB scanned, and these log groups hold megabytes (ADR 0007).
 
 from __future__ import annotations
 
+import re
 from datetime import timedelta
 from typing import Any
 
@@ -31,6 +32,19 @@ RUNTIME_ERRORS = (
     r"| parse @message /(?<error>\[ERROR\][^\r\n]*|Task timed out[^\r\n]*|Runtime exited[^\r\n]*"
     r"|Runtime\.OutOfMemory[^\r\n]*)/ "
     "| stats count(*) as count by error | sort count desc | limit 5"
+)
+LAMBDA_REPORTS = (
+    # Lambda's own REPORT line per invocation: duration and memory, per function version
+    # (the version is in the log stream name). Shows timeouts, slowness and memory limits.
+    'filter @type = "REPORT" '
+    r"| parse @logStream /\[(?<lambda_version>[^\]]+)\]/ "
+    "| stats count(*) as invocations, pct(@duration, 95) as p95_ms, max(@duration) as max_ms, "
+    "max(@maxMemoryUsed / 1000 / 1000) as max_memory_mb, max(@memorySize / 1000 / 1000) "
+    "as memory_mb by lambda_version | sort lambda_version desc | limit 10"
+)
+# Columns that don't add up across rows (a sum of maxima or percentiles means nothing).
+_NOT_ADDITIVE = re.compile(
+    r"max|min|avg|mean|pct|p\d|_ms|_mb|latency|duration|memory|version", re.I
 )
 
 
@@ -80,10 +94,10 @@ def run(ctx: ToolContext, args: Args) -> ToolResult:
 
 
 def _totals(rows: list[dict[str, str]]) -> dict[str, float]:
-    """Sums of numeric stats columns, so counts like "120 errors in all" are in the evidence."""
+    """Sums of numeric count columns, so counts like "120 errors in all" are in the evidence."""
     totals: dict[str, float] = {}
     for column in rows[0]:
-        if column.startswith("@"):
+        if column.startswith("@") or _NOT_ADDITIVE.search(column):
             continue
         try:
             totals[column] = sum(float(row[column]) for row in rows)

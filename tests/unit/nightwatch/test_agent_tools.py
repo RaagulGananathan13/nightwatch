@@ -118,6 +118,17 @@ def test_recent_changes_names_the_version_that_was_live_before_the_deploy() -> N
     assert result.data["changes"][0]["sha"] == BAD_SHA
 
 
+def test_recent_changes_says_what_a_deploy_changed_without_values() -> None:
+    code = run_tool("recent_changes", {}, context(FakeAws(lambda_=FakeLambda(prev="4"))))
+    assert "new code vs version 4, same environment variables" in code.summary
+    settings_only = FakeLambda(prev="4", table="shoplite-catalogue", same_code=True)
+    result = run_tool("recent_changes", {}, context(FakeAws(lambda_=settings_only)))
+    assert "same code as version 4, but environment variables changed: TABLE_NAME" in result.summary
+    assert result.data["changes"][0]["env_changed"] == ["TABLE_NAME"]
+    assert result.data["changes"][0]["code_changed"] is False
+    assert "shoplite-catalogue" not in result.summary + str(result.data)  # values stay hidden
+
+
 def test_recent_changes_sees_flags_and_capacity() -> None:
     history = [
         {

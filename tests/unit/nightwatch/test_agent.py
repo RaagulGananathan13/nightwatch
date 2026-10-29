@@ -99,7 +99,7 @@ def test_diagnosis_names_the_deploy_and_the_guard_checks_every_claim(store: Inci
         "recent_changes",
         "search_similar_incidents",
     ]
-    assert tools.count("query_logs") == 3
+    assert tools.count("query_logs") == 4  # errors, requests, runtime, REPORT lines
     prompt = fake.calls[0][1]["content"] if fake else ""
     assert '<tool_result id="E6" tool="query_logs" ok="true">' in prompt
     assert "<log>" in prompt

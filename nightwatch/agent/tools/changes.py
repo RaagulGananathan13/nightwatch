@@ -132,6 +132,11 @@ def _deploys(
                 summary += f"; commit '{commit['message']}' by {commit['author']}"
         if rollback_to:
             details["rollback_to"] = rollback_to.group(1)
+            replaced = next((v for v in versions if v["Version"] == rollback_to.group(1)), None)
+            if replaced:
+                difference = _difference(replaced, version)
+                details.update(difference)
+                summary += "; " + _describe(difference, rollback_to.group(1))
         changes.append(Change(at, "deploy", function, summary, details))
 
     live_info: dict[str, Any] = {}
@@ -142,6 +147,30 @@ def _deploys(
             "description": (current or {}).get("Description", "") or "no description",
         }
     return changes, live_info
+
+
+def _difference(before: dict[str, Any], after: dict[str, Any]) -> dict[str, Any]:
+    """What a deploy changed: the code, and which environment variables (names only, since
+    values can be secrets)."""
+    old = (before.get("Environment") or {}).get("Variables") or {}
+    new = (after.get("Environment") or {}).get("Variables") or {}
+    return {
+        "code_changed": before.get("CodeSha256") != after.get("CodeSha256"),
+        "env_changed": sorted(
+            name for name in old.keys() | new.keys() if old.get(name) != new.get(name)
+        ),
+    }
+
+
+def _describe(difference: dict[str, Any], replaced: str) -> str:
+    names = ", ".join(difference["env_changed"])
+    if difference["code_changed"] and names:
+        return f"new code and changed environment variables ({names}) vs version {replaced}"
+    if difference["code_changed"]:
+        return f"new code vs version {replaced}, same environment variables"
+    if names:
+        return f"same code as version {replaced}, but environment variables changed: {names}"
+    return f"same code and settings as version {replaced}"
 
 
 def _commit(ctx: ToolContext, sha: str) -> dict[str, str] | None:

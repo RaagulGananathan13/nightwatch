@@ -26,8 +26,12 @@ class Paginator:
 
 
 class FakeLambda:
-    def __init__(self, prev: str | None = None) -> None:
+    def __init__(
+        self, prev: str | None = None, table: str = "shoplite", same_code: bool = False
+    ) -> None:
         self.prev = prev  # "prev=N" in version 5's description, as deploy_lambda now writes
+        self.table = table  # version 5's TABLE_NAME
+        self.same_code = same_code  # version 5 only changed settings
 
     def get_alias(self, **_: Any) -> dict[str, Any]:
         return {"FunctionVersion": "5"}
@@ -40,11 +44,15 @@ class FakeLambda:
                 "Version": "4",
                 "LastModified": lambda_time(T0 - timedelta(hours=3)),
                 "Description": f"sha={GOOD_SHA} run=1 by=RaagulGananathan13",
+                "CodeSha256": "good-code",
+                "Environment": {"Variables": {"TABLE_NAME": "shoplite"}},
             },
             {
                 "Version": "5",
                 "LastModified": lambda_time(T0 - timedelta(minutes=2)),
                 "Description": f"{bad} prev={self.prev}" if self.prev else bad,
+                "CodeSha256": "good-code" if self.same_code else "bad-code",
+                "Environment": {"Variables": {"TABLE_NAME": self.table}},
             },
         ]
         return Paginator([{"Versions": versions}])
