@@ -6,6 +6,7 @@ EventBridge delivers every alarm that goes to ALARM or back to OK. Alarms withou
 
 from __future__ import annotations
 
+import json
 import time
 from dataclasses import replace
 from functools import cache
@@ -14,11 +15,12 @@ from typing import TYPE_CHECKING, Any
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 
-from nightwatch.chat.discord import DiscordWebhook
+from nightwatch.chat.discord import DiscordWebhook, webhook_from_ssm
 from nightwatch.common.audit import AuditLog
 from nightwatch.common.config import Settings
 from nightwatch.common.incidents import IncidentStore
 from nightwatch.common.log import emit
+from nightwatch.common.models import Incident
 from nightwatch.common.secrets import SecretCache
 from nightwatch.common.timeutil import utcnow
 from nightwatch.ingest.correlate import correlate
@@ -27,6 +29,7 @@ from nightwatch.ingest.notify import notify
 
 if TYPE_CHECKING:
     from mypy_boto3_cloudwatch import CloudWatchClient
+    from mypy_boto3_stepfunctions import SFNClient
 
 TAG_CACHE_SECONDS = 300.0
 
@@ -77,7 +80,30 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         detail=outcome.detail or None,
     )
     notify(outcome, store, audit, lambda: _webhook(settings), now)
+    if outcome.kind == "opened" and outcome.incident is not None:
+        start_investigation(settings, outcome.incident, audit)
     return {"outcome": outcome.kind, "incident": label}
+
+
+def start_investigation(settings: Settings, incident: Incident, audit: AuditLog) -> None:
+    """Start the incident workflow. Named after the incident, so a retry can't start a second one."""
+    if not settings.state_machine_arn:
+        return
+    try:
+        _stepfunctions().start_execution(
+            stateMachineArn=settings.state_machine_arn,
+            name=incident.id,
+            input=json.dumps({"incident_id": incident.id}),
+        )
+    except ClientError as exc:
+        if exc.response.get("Error", {}).get("Code") == "ExecutionAlreadyExists":
+            return
+        emit(
+            "ERROR", "could not start investigation", incident=incident.label, error=str(exc)[:200]
+        )
+        audit.record("investigation_start_failed", incident.id, error=str(exc)[:200])
+        return
+    audit.record("investigation_queued", incident.id)
 
 
 def alarm_tags(arn: str) -> dict[str, str]:
@@ -97,11 +123,14 @@ def alarm_tags(arn: str) -> dict[str, str]:
 
 
 def _webhook(settings: Settings) -> DiscordWebhook | None:
-    if not settings.discord_webhook_param:
-        return None
-    return DiscordWebhook(_secrets.get(settings.discord_webhook_param))
+    return webhook_from_ssm(settings.discord_webhook_param, _secrets.get)
 
 
 @cache
 def _cloudwatch() -> CloudWatchClient:
     return boto3.client("cloudwatch")
+
+
+@cache
+def _stepfunctions() -> SFNClient:
+    return boto3.client("stepfunctions")

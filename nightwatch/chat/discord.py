@@ -80,6 +80,11 @@ class DiscordWebhook:
         raise DiscordError("Discord request failed")  # pragma: no cover - loop always returns
 
 
+def webhook_from_ssm(param: str, secret: Callable[[str], str]) -> DiscordWebhook | None:
+    """The webhook whose URL is stored in SSM at ``param``. None when notifications are off."""
+    return DiscordWebhook(secret(param)) if param else None
+
+
 def _retry_after(exc: urllib.error.HTTPError) -> float:
     """Seconds Discord asked us to wait after a 429, capped so a Lambda never stalls."""
     try:
