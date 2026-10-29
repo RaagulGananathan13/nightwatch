@@ -78,19 +78,16 @@ data "aws_iam_policy_document" "investigate" {
   }
 
   statement {
-    sid = "ReadMetricsAndQueryResults" # these APIs have no resource-level permissions
-    actions = [
-      "cloudwatch:GetMetricStatistics",
-      "cloudtrail:LookupEvents",
-      "logs:GetQueryResults",
-      "logs:StopQuery",
-    ]
+    # Checked against AWS's service authorization reference on 2026-10-29: these three have no
+    # resource-level permissions, so "*" is the only possible scope.
+    sid       = "NoResourceLevelPermissions"
+    actions   = ["cloudwatch:GetMetricStatistics", "cloudtrail:LookupEvents", "logs:StopQuery"]
     resources = ["*"]
   }
 
   statement {
     sid       = "QueryWatchedLogs"
-    actions   = ["logs:StartQuery"]
+    actions   = ["logs:StartQuery", "logs:GetQueryResults"]
     resources = local.log_group_query_arns
   }
 
