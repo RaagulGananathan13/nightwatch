@@ -18,7 +18,7 @@ classifiers = [
 ]
 # Runtime dependencies ship to AWS Lambda in a shared layer (pinned in requirements-lambda.txt),
 # so this list stays short. boto3 comes with the Lambda runtime, so it is only a dev dependency.
-dependencies = ["pydantic>=2.14,<3"]
+dependencies = ["pydantic>=2.14,<3", "PyYAML>=6.0,<7"]
 
 [project.optional-dependencies]
 dev = [
@@ -32,8 +32,9 @@ dev = [
   "pip-audit==2.10.1",
   # AWS SDK and mocks for tests (Lambda provides boto3 at runtime)
   "boto3==1.43.120",
-  "boto3-stubs[dynamodb,ssm,lambda,cloudwatch]==1.43.120",
-  "moto[dynamodb,ssm,awslambda]==5.2.5",
+  "boto3-stubs[dynamodb,ssm,lambda,cloudwatch,logs,cloudtrail,stepfunctions]==1.43.120",
+  "types-PyYAML==6.0.12.20260906",
+  "moto[dynamodb,ssm,awslambda,stepfunctions]==5.2.5",
 ]
 
 [project.urls]
