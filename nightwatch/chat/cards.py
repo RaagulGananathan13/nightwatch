@@ -7,6 +7,7 @@ from typing import Any
 
 from nightwatch.common.models import Incident
 from nightwatch.common.timeutil import to_iso
+from nightwatch.remediation.actions import Action
 
 _RED = 0xE5484D
 _GREEN = 0x30A46C
@@ -142,6 +143,105 @@ def duration(span: timedelta) -> str:
 
 def _alerts(count: int) -> str:
     return "1 alert" if count == 1 else f"{count} grouped"
+
+
+_YELLOW = 0xF5A524
+
+
+def approval_message(action: Action, incident: Incident, approvers: list[str]) -> dict[str, Any]:
+    """The approval card: what will change, why, how it's checked and undone, and its status.
+
+    While it waits it pings the approvers and carries Approve / Reject buttons. Their
+    custom_id is ``nw:<approve|reject>:<incident id>:<action id>``; the click handler trusts
+    nothing else in the click, and checks who clicked against the service's approvers.
+    """
+    label = incident.label
+    waiting = action.status == "awaiting_approval"
+    status, color = _action_status(action)
+    verify = action.verify
+    check = (
+        f"{verify.get('metric')} ({verify.get('stat', 'Sum')} per minute) stays at or below "
+        f"{verify.get('max_value', 0):g} for {verify.get('minutes', 2)} min after the fix"
+    )
+    fields = [
+        {"name": "Change", "value": f"```{_limit(_clean(action.preview), 900)}```"},
+        {"name": "Why", "value": _limit(_clean(action.reason), 1024)},
+        {"name": "Blast radius", "value": _limit(_clean(action.blast_radius), 1024)},
+        {"name": "Risk", "value": action.risk.title(), "inline": True},
+        {
+            "name": "Undo",
+            "value": "Automatic if things get worse" if action.rollback else "Manual",
+            "inline": True,
+        },
+        {"name": "Verified by", "value": _limit(check, 1024)},
+        {"name": "Status", "value": _limit(status, 1024)},
+    ]
+    embed = {
+        "title": _limit(f"Proposed fix for {label}: {action.title}", 256),
+        "color": color,
+        "fields": fields,
+        "footer": {"text": f"Runbook {action.runbook_id} · action {action.id}"},
+        "timestamp": to_iso(action.created_at),
+    }
+    message: dict[str, Any] = {"embeds": [embed], "components": []}
+    if waiting:
+        pings = " ".join(f"<@{user}>" for user in approvers)
+        message["content"] = f"{pings} NightWatch wants to run a fix for **{label}**.".strip()
+        message["allowed_mentions"] = {"users": approvers}
+        message["components"] = [
+            {
+                "type": 1,
+                "components": [
+                    _button("Approve", 3, f"nw:approve:{incident.id}:{action.id}"),
+                    _button("Reject", 4, f"nw:reject:{incident.id}:{action.id}"),
+                ],
+            }
+        ]
+    else:
+        message["content"] = f"Fix for **{label}**: {status}"
+    return message
+
+
+def escalation_message(action: Action, incident: Incident, approvers: list[str]) -> dict[str, Any]:
+    """Posted when nobody approved in time (spec: "timeout -> escalate"). Nothing changes."""
+    pings = " ".join(f"<@{user}>" for user in approvers)
+    return {
+        "content": (
+            f"{pings} ⏰ Nobody approved the fix for **{incident.label}** "
+            f"({_clean(action.title)}) in time, so nothing was changed. "
+            "The incident is still yours: check it in the channel above."
+        ).strip(),
+        "allowed_mentions": {"users": approvers},
+    }
+
+
+def _action_status(action: Action) -> tuple[str, int]:
+    who = _clean(action.decided_by_name or "someone")
+    result = _clean(action.result)
+    detail = _clean(str((action.verification or {}).get("detail", "")))
+    expires = f" (expires <t:{int(action.expires_at.timestamp())}:R>)" if action.expires_at else ""
+    table: dict[str, tuple[str, int]] = {
+        "proposed": ("Waiting to ask for approval.", _GREY),
+        "awaiting_approval": (f"⏳ Waiting for an approver{expires}.", _YELLOW),
+        "approved": (f"👍 Approved by {who}. Running the fix…", _BLUE),
+        "rejected": (f"👎 Rejected by {who}. Nothing was changed.", _GREY),
+        "expired": ("⏰ Nobody approved in time. Nothing was changed.", _GREY),
+        "blocked": (f"⛔ Blocked: {result} Nothing was changed.", _GREY),
+        "executing": (f"⚙️ Approved by {who}. Running the fix…", _BLUE),
+        "executed": (f"⚙️ Done: {result}. Checking that it worked…", _BLUE),
+        "failed": (f"❌ Failed: {result}", _RED),
+        "verified": (f"✅ Fixed and verified. {detail}", _GREEN),
+        "not_fixed": (f"⚠️ The fix ran but the problem isn't gone. {detail}", _RED),
+        "no_data": (f"❔ The fix ran, but there was no traffic to check it. {detail}", _YELLOW),
+        "worse": (f"↩️ Worse after the fix; undoing it… {detail}", _RED),
+        "reverted": (f"↩️ Worse after the fix, so NightWatch undid it. {result}", _RED),
+        "revert_failed": (f"❌ Worse after the fix and the undo failed: {result}", _RED),
+    }
+    return table[action.status]
+
+
+def _button(label: str, style: int, custom_id: str) -> dict[str, Any]:
+    return {"type": 2, "style": style, "label": label, "custom_id": custom_id}
 
 
 def _clean(text: str) -> str:
