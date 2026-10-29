@@ -1,0 +1,24 @@
+# A reserved concurrency of 0 throttles every request; removing the reservation lets them run.
+# (New AWS accounts can't reserve concurrency at all, so "reset" means "remove".)
+id: reset-lambda-concurrency
+title: Remove the concurrency limit
+description: Delete the function's reserved concurrency so it can run again.
+risk: low
+auto_approve: false
+signal: concurrency_block
+params:
+  function_name: { from: signal.function }
+  current_limit: { from: state.reserved_concurrency }
+preview: "{{function_name}} reserved concurrency: {{current_limit}} -> none"
+blast_radius: "1 Lambda function setting ({{function_name}}). No code or data is changed."
+action:
+  service: lambda
+  call: delete_function_concurrency
+  args: { FunctionName: "{{function_name}}" }
+verify:
+  namespace: AWS/Lambda
+  metric: Throttles
+  dimensions: { FunctionName: "{{function_name}}" }
+  stat: Sum
+  max_value: 0
+  minutes: 2

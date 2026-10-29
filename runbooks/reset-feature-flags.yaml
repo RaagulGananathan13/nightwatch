@@ -1,0 +1,29 @@
+# Switch every feature flag off: the service's flags parameter goes back to "{}".
+id: reset-feature-flags
+title: Turn the feature flags off
+description: Reset the service's feature-flag parameter to no flags, undoing the change that preceded the incident.
+risk: low
+auto_approve: false
+signal: flag_change
+params:
+  parameter: { from: signal.parameter }
+  current_value: { from: state.parameter_value }
+  no_flags: { from: "literal:{}" }
+  function: { from: service.function }
+preview: "{{parameter}}: {{current_value}} -> {{no_flags}}"
+blast_radius: "1 SSM parameter ({{parameter}}). The app re-reads it within 10 seconds."
+action:
+  service: ssm
+  call: put_parameter
+  args: { Name: "{{parameter}}", Value: "{{no_flags}}", Type: String, Overwrite: true }
+verify:
+  namespace: AWS/Lambda
+  metric: Errors
+  dimensions: { FunctionName: "{{function}}" }
+  stat: Sum
+  max_value: 0
+  minutes: 2
+rollback:
+  service: ssm
+  call: put_parameter
+  args: { Name: "{{parameter}}", Value: "{{current_value}}", Type: String, Overwrite: true }

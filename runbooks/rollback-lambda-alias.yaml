@@ -1,0 +1,30 @@
+# Undo a bad deploy: point the live alias back at the version that was live before it.
+# CI and the chaos lab record that version as "prev=N" in each new version's description.
+id: rollback-lambda-alias
+title: Roll back the deploy
+description: Move the function's live alias back to the version that was live before the latest deploy.
+risk: low
+auto_approve: false
+signal: deploy
+params:
+  function_name: { from: signal.function }
+  target_version: { from: signal.rollback_to }
+  current_version: { from: state.alias_version }
+  alias: { from: service.lambda_alias }
+preview: "{{function_name}} alias {{alias}}: version {{current_version}} -> {{target_version}}"
+blast_radius: "1 Lambda alias ({{function_name}}:{{alias}}). No data is changed."
+action:
+  service: lambda
+  call: update_alias
+  args: { FunctionName: "{{function_name}}", Name: "{{alias}}", FunctionVersion: "{{target_version}}" }
+verify:
+  namespace: AWS/Lambda
+  metric: Errors
+  dimensions: { FunctionName: "{{function_name}}" }
+  stat: Sum
+  max_value: 0
+  minutes: 2
+rollback:
+  service: lambda
+  call: update_alias
+  args: { FunctionName: "{{function_name}}", Name: "{{alias}}", FunctionVersion: "{{current_version}}" }

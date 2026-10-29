@@ -15,4 +15,7 @@ services:
     ssm_parameters: [/shoplite/flags]
     dependencies: [dynamodb:shoplite, ssm:/shoplite/flags]
     deploys: GitHub Actions deploys every merge to main as a new Lambda version (description sha=<commit>) and moves the live alias.
-    runbooks: []  # approval-gated fixes arrive in Phase 4
+    # Fixes NightWatch may propose (runbooks/*.yaml). Each one waits for an approver's click.
+    runbooks: [rollback-lambda-alias, reset-feature-flags, reset-lambda-concurrency, raise-dynamodb-capacity]
+    # Discord user ids allowed to approve or reject those fixes.
+    approvers: ["1048648983599403058"]

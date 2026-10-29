@@ -1,0 +1,198 @@
+{
+  "$defs": {
+    "Call": {
+      "additionalProperties": false,
+      "properties": {
+        "service": {
+          "enum": [
+            "lambda",
+            "ssm",
+            "dynamodb"
+          ],
+          "title": "Service",
+          "type": "string"
+        },
+        "call": {
+          "title": "Call",
+          "type": "string"
+        },
+        "args": {
+          "additionalProperties": true,
+          "title": "Args",
+          "type": "object"
+        }
+      },
+      "required": [
+        "service",
+        "call",
+        "args"
+      ],
+      "title": "Call",
+      "type": "object"
+    },
+    "Param": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "default": "string",
+          "enum": [
+            "string",
+            "integer"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "from": {
+          "pattern": "^(signal|state|service)\\.\\w+$|^literal:.*$",
+          "title": "From",
+          "type": "string"
+        }
+      },
+      "required": [
+        "from"
+      ],
+      "title": "Param",
+      "type": "object"
+    },
+    "Verify": {
+      "additionalProperties": false,
+      "properties": {
+        "namespace": {
+          "enum": [
+            "AWS/Lambda",
+            "AWS/DynamoDB"
+          ],
+          "title": "Namespace",
+          "type": "string"
+        },
+        "metric": {
+          "title": "Metric",
+          "type": "string"
+        },
+        "dimensions": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Dimensions",
+          "type": "object"
+        },
+        "stat": {
+          "default": "Sum",
+          "enum": [
+            "Sum",
+            "Maximum",
+            "Average"
+          ],
+          "title": "Stat",
+          "type": "string"
+        },
+        "max_value": {
+          "default": 0.0,
+          "title": "Max Value",
+          "type": "number"
+        },
+        "minutes": {
+          "default": 2,
+          "maximum": 15,
+          "minimum": 1,
+          "title": "Minutes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "namespace",
+        "metric"
+      ],
+      "title": "Verify",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "pattern": "^[a-z0-9-]{3,60}$",
+      "title": "Id",
+      "type": "string"
+    },
+    "title": {
+      "maxLength": 80,
+      "title": "Title",
+      "type": "string"
+    },
+    "description": {
+      "maxLength": 300,
+      "title": "Description",
+      "type": "string"
+    },
+    "risk": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "title": "Risk",
+      "type": "string"
+    },
+    "auto_approve": {
+      "default": false,
+      "title": "Auto Approve",
+      "type": "boolean"
+    },
+    "signal": {
+      "enum": [
+        "deploy",
+        "flag_change",
+        "capacity_drop",
+        "concurrency_block"
+      ],
+      "title": "Signal",
+      "type": "string"
+    },
+    "params": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Param"
+      },
+      "title": "Params",
+      "type": "object"
+    },
+    "preview": {
+      "title": "Preview",
+      "type": "string"
+    },
+    "blast_radius": {
+      "title": "Blast Radius",
+      "type": "string"
+    },
+    "action": {
+      "$ref": "#/$defs/Call"
+    },
+    "verify": {
+      "$ref": "#/$defs/Verify"
+    },
+    "rollback": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Call"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "id",
+    "title",
+    "description",
+    "risk",
+    "signal",
+    "params",
+    "preview",
+    "blast_radius",
+    "action",
+    "verify"
+  ],
+  "title": "Runbook",
+  "type": "object"
+}

@@ -23,11 +23,17 @@ class ServiceInfo(BaseModel):
     ssm_parameters: list[str] = Field(default_factory=list)
     dependencies: list[str] = Field(default_factory=list)
     deploys: str = ""
-    runbooks: list[str] = Field(default_factory=list)
+    runbooks: list[str] = Field(default_factory=list)  # fixes NightWatch may propose
+    approvers: list[str] = Field(default_factory=list)  # Discord user ids who may approve them
 
     @property
     def resources(self) -> set[str]:
         return {*self.lambda_functions, *self.dynamodb_tables}
+
+    @property
+    def function(self) -> str:
+        """The service's main Lambda function (the first one listed)."""
+        return self.lambda_functions[0] if self.lambda_functions else ""
 
 
 @cache

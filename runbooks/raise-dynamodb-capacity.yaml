@@ -1,0 +1,29 @@
+# Throttled table: put its provisioned capacity back to the baseline Terraform sets.
+# The baseline keeps every table together inside the 25-unit free tier (ADR 0002).
+id: raise-dynamodb-capacity
+title: Restore the table's capacity
+description: Raise the table's provisioned read and write units back to the free-tier baseline.
+risk: low
+auto_approve: false
+signal: capacity_drop
+params:
+  table: { from: signal.table }
+  current_read: { from: state.read_units }
+  current_write: { from: state.write_units }
+  baseline: { type: integer, from: "literal:5" }
+  function: { from: service.function }
+preview: "{{table}} capacity: {{current_read}} read / {{current_write}} write -> {{baseline}} / {{baseline}}"
+blast_radius: "1 DynamoDB table setting ({{table}}). No data is changed."
+action:
+  service: dynamodb
+  call: update_table
+  args:
+    TableName: "{{table}}"
+    ProvisionedThroughput: { ReadCapacityUnits: "{{baseline}}", WriteCapacityUnits: "{{baseline}}" }
+verify:  # the symptom users see: the API failing on throttled writes
+  namespace: AWS/Lambda
+  metric: Errors
+  dimensions: { FunctionName: "{{function}}" }
+  stat: Sum
+  max_value: 0
+  minutes: 2
