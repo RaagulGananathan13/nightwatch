@@ -29,6 +29,13 @@ class Settings:
     # Requests per provider per day, kept well under the free tier.
     llm_daily_requests: int = 300
     investigation_seconds: float = 90.0
+    # Phase 4: approval buttons need a Discord bot (webhooks can't receive clicks).
+    discord_bot_token_param: str = ""  # SSM SecureString; empty means no approval requests
+    discord_channel_id: str = ""
+    discord_public_key: str = ""  # the application's Ed25519 key, used to check every click
+    approval_timeout_minutes: int = 30
+    # Spec F14: "true" (or anything but "false", or unreadable) turns every fix off.
+    kill_switch_param: str = "/nightwatch/kill_switch"
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> Settings:
@@ -45,4 +52,9 @@ class Settings:
             gemini_key_param=env.get("GEMINI_KEY_PARAM", "/nightwatch/llm/gemini_api_key"),
             llm_daily_requests=int(env.get("LLM_DAILY_REQUESTS", "300")),
             investigation_seconds=float(env.get("INVESTIGATION_SECONDS", "90")),
+            discord_bot_token_param=env.get("DISCORD_BOT_TOKEN_PARAM", ""),
+            discord_channel_id=env.get("DISCORD_CHANNEL_ID", ""),
+            discord_public_key=env.get("DISCORD_PUBLIC_KEY", ""),
+            approval_timeout_minutes=int(env.get("APPROVAL_TIMEOUT_MINUTES", "30")),
+            kill_switch_param=env.get("KILL_SWITCH_PARAM", "/nightwatch/kill_switch"),
         )
