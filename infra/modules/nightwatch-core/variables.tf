@@ -60,3 +60,31 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "watched" {
+  description = "Resources of the services NightWatch investigates. The investigator may only read these (spec section 11)."
+  type = object({
+    function_arns  = list(string)
+    log_group_arns = list(string)
+    table_arns     = list(string)
+    parameter_arns = list(string)
+  })
+}
+
+variable "llm_providers" {
+  description = "LLMs to try in order, as provider:model (ADR 0003). Providers without a key in SSM are skipped."
+  type        = string
+  default     = "groq:openai/gpt-oss-120b,groq:qwen/qwen3.8-27b"
+}
+
+variable "llm_daily_requests" {
+  description = "Requests per LLM model per day, kept well under the free tier (Groq allows 1,000)."
+  type        = number
+  default     = 300
+}
+
+variable "settle_seconds" {
+  description = "How long the workflow waits for related alarms before investigating."
+  type        = number
+  default     = 30
+}

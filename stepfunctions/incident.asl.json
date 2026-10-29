@@ -1,0 +1,62 @@
+{
+  "Comment": "NightWatch incident workflow, Phase 3: let related alarms arrive, investigate, report. Phase 4 adds approval, remediation and verification.",
+  "StartAt": "LetAlertsSettle",
+  "States": {
+    "LetAlertsSettle": {
+      "Comment": "Related alarms usually fire within a minute of each other; waiting lets the investigation see them all. Waiting is free in a Standard workflow.",
+      "Type": "Wait",
+      "Seconds": ${settle_seconds},
+      "Next": "Investigate"
+    },
+    "Investigate": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${investigate_arn}",
+        "Payload": { "incident_id.$": "$.incident_id" }
+      },
+      "ResultSelector": {
+        "incident_id.$": "$.Payload.incident_id",
+        "method.$": "$.Payload.method"
+      },
+      "TimeoutSeconds": 180,
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 3,
+          "MaxAttempts": 2,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [{ "ErrorEquals": ["States.ALL"], "ResultPath": "$.error", "Next": "ReportFailure" }],
+      "Next": "Report"
+    },
+    "Report": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${report_arn}",
+        "Payload": { "incident_id.$": "$.incident_id" }
+      },
+      "TimeoutSeconds": 60,
+      "Retry": [{ "ErrorEquals": ["States.ALL"], "IntervalSeconds": 5, "MaxAttempts": 2, "BackoffRate": 2 }],
+      "End": true
+    },
+    "ReportFailure": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${report_arn}",
+        "Payload": { "incident_id.$": "$.incident_id", "error.$": "$.error" }
+      },
+      "TimeoutSeconds": 60,
+      "Retry": [{ "ErrorEquals": ["States.ALL"], "IntervalSeconds": 5, "MaxAttempts": 2, "BackoffRate": 2 }],
+      "End": true
+    }
+  }
+}

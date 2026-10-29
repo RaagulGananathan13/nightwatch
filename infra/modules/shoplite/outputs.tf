@@ -38,3 +38,11 @@ output "provisioned_capacity" {
     write = aws_dynamodb_table.this.write_capacity
   }
 }
+
+output "log_group_arn" {
+  value = aws_cloudwatch_log_group.api.arn
+}
+
+output "flags_parameter_arn" {
+  value = aws_ssm_parameter.flags.arn
+}

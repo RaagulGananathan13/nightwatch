@@ -42,6 +42,14 @@ module "nightwatch_core" {
   package_path        = "${path.root}/../../../.build/nightwatch.zip"
   layer_path          = "${path.root}/../../../.build/nightwatch-deps.zip"
   boundary_policy_arn = local.boundary_policy_arn
+
+  # What the read-only investigator may look at: ShopLite's own resources, nothing else.
+  watched = {
+    function_arns  = [module.shoplite.function_arn]
+    log_group_arns = [module.shoplite.log_group_arn]
+    table_arns     = [module.shoplite.table_arn]
+    parameter_arns = [module.shoplite.flags_parameter_arn]
+  }
 }
 
 module "alarms" {

@@ -18,3 +18,12 @@ output "provisioned_capacity" {
     write = aws_dynamodb_table.this.write_capacity + var.index_capacity
   }
 }
+
+output "state_machine_arn" {
+  description = "The incident workflow. Open it in the Step Functions console to see each run."
+  value       = aws_sfn_state_machine.incident.arn
+}
+
+output "investigate_function_name" {
+  value = aws_lambda_function.investigate.function_name
+}

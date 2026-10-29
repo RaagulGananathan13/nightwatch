@@ -11,7 +11,7 @@ DynamoDB capacity or CloudWatch alarm metrics would go over it.
 | `modules/iam` | GitHub OIDC trust plus two roles: `github-deploy` (ships code) and `github-plan` (read-only) |
 | `modules/shoplite` | The demo store: DynamoDB table, Lambda with `live` alias and IAM-auth URL, flags parameter, canary |
 | `modules/alarms` | The five ShopLite alarms (7 of the 10 free alarm metrics), each tagged with its service and severity |
-| `modules/nightwatch-core` | The `nightwatch` table, the dependency layer, the `nightwatch-ingest` Lambda, its dead-letter queue, and the EventBridge rule for alarm changes |
+| `modules/nightwatch-core` | The `nightwatch` table, the dependency layer, the `nightwatch-ingest` Lambda with its dead-letter queue and EventBridge rule, and the incident workflow: the `nightwatch-incident` state machine, the read-only `nightwatch-investigate` Lambda and `nightwatch-report` |
 | `envs/dev/` | Wires the modules together and checks the free-tier limits |
 
 Every IAM role lives under `/nightwatch/` and carries the `NightWatchBoundary` permissions boundary, so
@@ -50,6 +50,15 @@ Run the `make` commands from Git Bash in the repository root.
 
    The first line stops AWS CLI v1 from downloading `https://` values instead of storing them.
    Terraform never sees the URL.
+
+   For Phase 3, store a free Groq API key from [console.groq.com/keys](https://console.groq.com/keys) the same way:
+
+   ```powershell
+   $key = Read-Host "Paste the Groq API key"; aws ssm put-parameter --profile nightwatch --name /nightwatch/llm/groq_api_key --type SecureString --value $key --overwrite; Remove-Variable key
+   ```
+
+   A Gemini key at `/nightwatch/llm/gemini_api_key` is optional. Without any key, NightWatch still
+   posts a rule-based diagnosis.
 
 4. **Fill in your settings.** Copy `envs/dev/terraform.tfvars.example` to `envs/dev/terraform.tfvars`
    and set `budget_alert_email`.

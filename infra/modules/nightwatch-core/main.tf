@@ -165,6 +165,12 @@ data "aws_iam_policy_document" "ingest" {
   }
 
   statement {
+    sid       = "StartInvestigation"
+    actions   = ["states:StartExecution"]
+    resources = [aws_sfn_state_machine.incident.arn]
+  }
+
+  statement {
     sid       = "WriteLogs"
     actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
     resources = ["${aws_cloudwatch_log_group.ingest.arn}:*"]
@@ -195,6 +201,7 @@ resource "aws_lambda_function" "ingest" {
       TENANT_ID             = var.tenant_id
       DISCORD_WEBHOOK_PARAM = var.discord_webhook_param
       FLAP_WINDOW_MINUTES   = tostring(var.flap_window_minutes)
+      STATE_MACHINE_ARN     = aws_sfn_state_machine.incident.arn
     }
   }
 

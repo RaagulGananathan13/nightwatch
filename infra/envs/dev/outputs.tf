@@ -23,6 +23,11 @@ output "ingest_function" {
   value = module.nightwatch_core.ingest_function_name
 }
 
+output "incident_workflow" {
+  description = "Step Functions state machine; each incident is one execution named after its id."
+  value       = module.nightwatch_core.state_machine_arn
+}
+
 output "github_deploy_role_arn" {
   description = "Save as repo variable AWS_DEPLOY_ROLE_ARN."
   value       = module.iam.deploy_role_arn
