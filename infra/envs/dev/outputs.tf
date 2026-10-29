@@ -28,6 +28,16 @@ output "incident_workflow" {
   value       = module.nightwatch_core.state_machine_arn
 }
 
+output "discord_interactions_url" {
+  description = "The Discord application's Interactions Endpoint URL (make discord-endpoint sets it)."
+  value       = module.nightwatch_core.interactions_url
+}
+
+output "kill_switch_parameter" {
+  description = "Set to true to stop every NightWatch fix."
+  value       = module.nightwatch_core.kill_switch_parameter
+}
+
 output "github_deploy_role_arn" {
   description = "Save as repo variable AWS_DEPLOY_ROLE_ARN."
   value       = module.iam.deploy_role_arn

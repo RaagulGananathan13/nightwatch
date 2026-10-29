@@ -88,3 +88,33 @@ variable "settle_seconds" {
   type        = number
   default     = 30
 }
+
+variable "discord_bot_token_param" {
+  description = "SSM SecureString holding the Discord bot token, used to post approval cards. You create it yourself."
+  type        = string
+  default     = "/nightwatch/discord/bot_token"
+}
+
+variable "discord_channel_id" {
+  description = "Discord channel for approval cards (the incidents channel). Empty turns approval requests off."
+  type        = string
+  default     = ""
+}
+
+variable "discord_public_key" {
+  description = "The Discord application's public key, used to verify every button click (it is public by design)."
+  type        = string
+  default     = ""
+}
+
+variable "approval_timeout_minutes" {
+  description = "How long a fix waits for approval before NightWatch escalates and gives up on it."
+  type        = number
+  default     = 30
+}
+
+variable "kill_switch_param" {
+  description = "SSM parameter that turns every fix off unless its value is false (spec F14)."
+  type        = string
+  default     = "/nightwatch/kill_switch"
+}

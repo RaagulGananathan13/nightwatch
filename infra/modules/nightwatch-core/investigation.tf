@@ -1,4 +1,5 @@
 # Phase 3: the incident workflow. Wait for related alarms, investigate, report.
+# Phase 4 adds approval, remediation and verification (remediation.tf).
 #
 #   ingest ──StartExecution──► nightwatch-incident (Step Functions, Standard)
 #                                ├─ LetAlertsSettle (Wait, free)
@@ -109,15 +110,19 @@ data "aws_iam_policy_document" "investigate" {
   }
 
   statement {
-    sid       = "ReadWatchedParameterHistory"
-    actions   = ["ssm:GetParameterHistory"]
+    sid       = "ReadWatchedParameters"
+    actions   = ["ssm:GetParameter", "ssm:GetParameterHistory"]
     resources = var.watched.parameter_arns
   }
 
   statement {
-    sid       = "WriteLogs"
-    actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
-    resources = ["${aws_cloudwatch_log_group.investigate.arn}:*"]
+    # The verify Lambda shares this read-only role.
+    sid     = "WriteLogs"
+    actions = ["logs:CreateLogStream", "logs:PutLogEvents"]
+    resources = [
+      "${aws_cloudwatch_log_group.investigate.arn}:*",
+      "${aws_cloudwatch_log_group.verify.arn}:*",
+    ]
   }
 }
 
@@ -190,9 +195,21 @@ data "aws_iam_policy_document" "report" {
   }
 
   statement {
-    sid       = "ReadDiscordWebhook"
-    actions   = ["ssm:GetParameter"]
-    resources = ["arn:aws:ssm:${local.region}:${local.account}:parameter${var.discord_webhook_param}"]
+    sid     = "ReadDiscordSecretsAndKillSwitch"
+    actions = ["ssm:GetParameter"]
+    resources = [
+      "arn:aws:ssm:${local.region}:${local.account}:parameter${var.discord_webhook_param}",
+      "arn:aws:ssm:${local.region}:${local.account}:parameter${var.discord_bot_token_param}",
+      local.kill_switch_arn,
+    ]
+  }
+
+  statement {
+    # When the kill switch is on, the approval request answers itself ("blocked"). The
+    # task-token calls have no resource-level permissions.
+    sid       = "ResumeWorkflow"
+    actions   = ["states:SendTaskSuccess"]
+    resources = ["*"]
   }
 
   statement {
@@ -222,7 +239,7 @@ resource "aws_lambda_function" "report" {
   #checkov:skip=CKV_AWS_173:Environment variables hold names only, no secrets
   #checkov:skip=CKV_AWS_272:Code signing is a paid workflow feature for this use
   function_name    = local.report_name
-  description      = "Adds the diagnosis to the incident's Discord message"
+  description      = "Posts diagnoses, approval requests and fix outcomes to Discord"
   role             = aws_iam_role.report.arn
   runtime          = "python3.13"
   architectures    = ["arm64"]
@@ -235,9 +252,13 @@ resource "aws_lambda_function" "report" {
 
   environment {
     variables = {
-      TABLE_NAME            = aws_dynamodb_table.this.name
-      TENANT_ID             = var.tenant_id
-      DISCORD_WEBHOOK_PARAM = var.discord_webhook_param
+      TABLE_NAME               = aws_dynamodb_table.this.name
+      TENANT_ID                = var.tenant_id
+      DISCORD_WEBHOOK_PARAM    = var.discord_webhook_param
+      DISCORD_BOT_TOKEN_PARAM  = var.discord_bot_token_param
+      DISCORD_CHANNEL_ID       = var.discord_channel_id
+      APPROVAL_TIMEOUT_MINUTES = tostring(var.approval_timeout_minutes)
+      KILL_SWITCH_PARAM        = var.kill_switch_param
     }
   }
 
@@ -286,13 +307,18 @@ data "aws_iam_policy_document" "workflow" {
   statement {
     actions = ["lambda:InvokeFunction"]
     resources = flatten([
-      for arn in [aws_lambda_function.investigate.arn, aws_lambda_function.report.arn] :
-      [arn, "${arn}:*"]
+      for arn in [
+        aws_lambda_function.investigate.arn,
+        aws_lambda_function.report.arn,
+        aws_lambda_function.remediate.arn,
+        aws_lambda_function.verify.arn,
+      ] : [arn, "${arn}:*"]
     ])
   }
 }
 
-# Standard workflows: 4,000 state transitions a month are free; each incident uses about 5.
+# Standard workflows: 4,000 state transitions a month are free. An incident uses about 6,
+# or about 15 when a fix is approved, run and verified.
 resource "aws_sfn_state_machine" "incident" {
   #checkov:skip=CKV_AWS_284:X-Ray tracing isn't needed; execution history is kept for 90 days for free
   #checkov:skip=CKV_AWS_285:Execution logging to CloudWatch is billed as vended logs; execution history is free
@@ -300,9 +326,12 @@ resource "aws_sfn_state_machine" "incident" {
   role_arn = aws_iam_role.workflow.arn
   type     = "STANDARD"
   definition = templatefile("${path.module}/../../../stepfunctions/incident.asl.json", {
-    investigate_arn = aws_lambda_function.investigate.arn
-    report_arn      = aws_lambda_function.report.arn
-    settle_seconds  = var.settle_seconds
+    investigate_arn          = aws_lambda_function.investigate.arn
+    report_arn               = aws_lambda_function.report.arn
+    remediate_arn            = aws_lambda_function.remediate.arn
+    verify_arn               = aws_lambda_function.verify.arn
+    settle_seconds           = var.settle_seconds
+    approval_timeout_seconds = var.approval_timeout_minutes * 60
   })
   tags = var.tags
 }

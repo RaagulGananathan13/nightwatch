@@ -1,5 +1,5 @@
 {
-  "Comment": "NightWatch incident workflow, Phase 3: let related alarms arrive, investigate, report. Phase 4 adds approval, remediation and verification.",
+  "Comment": "NightWatch incident workflow, Phase 4: investigate, report, then (if a runbook fits) wait for a human to approve the fix, run it, verify it, and undo it if things got worse.",
   "StartAt": "LetAlertsSettle",
   "States": {
     "LetAlertsSettle": {
@@ -17,7 +17,8 @@
       },
       "ResultSelector": {
         "incident_id.$": "$.Payload.incident_id",
-        "method.$": "$.Payload.method"
+        "method.$": "$.Payload.method",
+        "action.$": "$.Payload.action"
       },
       "TimeoutSeconds": 180,
       "Retry": [
@@ -42,6 +43,149 @@
       "Parameters": {
         "FunctionName": "${report_arn}",
         "Payload": { "incident_id.$": "$.incident_id" }
+      },
+      "ResultPath": null,
+      "TimeoutSeconds": 60,
+      "Retry": [{ "ErrorEquals": ["States.ALL"], "IntervalSeconds": 5, "MaxAttempts": 2, "BackoffRate": 2 }],
+      "Next": "IsThereAFix"
+    },
+    "IsThereAFix": {
+      "Type": "Choice",
+      "Choices": [
+        { "Variable": "$.action", "IsNull": true, "Next": "NothingToFix" },
+        { "Variable": "$.action.auto_approve", "BooleanEquals": true, "Next": "Remediate" }
+      ],
+      "Default": "RequestApproval"
+    },
+    "NothingToFix": {
+      "Comment": "No runbook matched the evidence. A human takes it from the diagnosis.",
+      "Type": "Succeed"
+    },
+    "RequestApproval": {
+      "Comment": "Posts the approval card and parks the task token on the action. The workflow sleeps (free) until a button click calls SendTaskSuccess, or the timeout escalates.",
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke.waitForTaskToken",
+      "Parameters": {
+        "FunctionName": "${report_arn}",
+        "Payload": {
+          "mode": "request_approval",
+          "incident_id.$": "$.incident_id",
+          "action_id.$": "$.action.action_id",
+          "task_token.$": "$$.Task.Token"
+        }
+      },
+      "ResultPath": "$.decision",
+      "TimeoutSeconds": ${approval_timeout_seconds},
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException",
+            "DiscordError"
+          ],
+          "IntervalSeconds": 5,
+          "MaxAttempts": 2,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        { "ErrorEquals": ["States.Timeout"], "ResultPath": "$.error", "Next": "Escalate" },
+        { "ErrorEquals": ["States.ALL"], "ResultPath": "$.error", "Next": "ReportOutcome" }
+      ],
+      "Next": "Approved"
+    },
+    "Approved": {
+      "Type": "Choice",
+      "Choices": [{ "Variable": "$.decision.decision", "StringEquals": "approve", "Next": "Remediate" }],
+      "Default": "ReportOutcome"
+    },
+    "Remediate": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${remediate_arn}",
+        "Payload": { "mode": "fix", "incident_id.$": "$.incident_id", "action_id.$": "$.action.action_id" }
+      },
+      "ResultSelector": {
+        "status.$": "$.Payload.status",
+        "verify_after_seconds.$": "$.Payload.verify_after_seconds"
+      },
+      "ResultPath": "$.remediation",
+      "TimeoutSeconds": 60,
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.TooManyRequestsException"],
+          "IntervalSeconds": 3,
+          "MaxAttempts": 2,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [{ "ErrorEquals": ["States.ALL"], "ResultPath": "$.error", "Next": "ReportOutcome" }],
+      "Next": "DidTheFixRun"
+    },
+    "DidTheFixRun": {
+      "Type": "Choice",
+      "Choices": [{ "Variable": "$.remediation.status", "StringEquals": "executed", "Next": "LetTheFixWork" }],
+      "Default": "ReportOutcome"
+    },
+    "LetTheFixWork": {
+      "Comment": "Wait until CloudWatch has the runbook's verification minutes after the fix.",
+      "Type": "Wait",
+      "SecondsPath": "$.remediation.verify_after_seconds",
+      "Next": "Verify"
+    },
+    "Verify": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${verify_arn}",
+        "Payload": { "incident_id.$": "$.incident_id", "action_id.$": "$.action.action_id" }
+      },
+      "ResultSelector": { "verdict.$": "$.Payload.verdict" },
+      "ResultPath": "$.verification",
+      "TimeoutSeconds": 60,
+      "Retry": [{ "ErrorEquals": ["States.ALL"], "IntervalSeconds": 5, "MaxAttempts": 2, "BackoffRate": 2 }],
+      "Catch": [{ "ErrorEquals": ["States.ALL"], "ResultPath": "$.error", "Next": "ReportOutcome" }],
+      "Next": "GotWorse"
+    },
+    "GotWorse": {
+      "Type": "Choice",
+      "Choices": [{ "Variable": "$.verification.verdict", "StringEquals": "worse", "Next": "UndoTheFix" }],
+      "Default": "ReportOutcome"
+    },
+    "UndoTheFix": {
+      "Comment": "Spec F7: if the situation got worse, run the runbook's rollback and say so.",
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${remediate_arn}",
+        "Payload": { "mode": "revert", "incident_id.$": "$.incident_id", "action_id.$": "$.action.action_id" }
+      },
+      "ResultPath": null,
+      "TimeoutSeconds": 60,
+      "Catch": [{ "ErrorEquals": ["States.ALL"], "ResultPath": "$.error", "Next": "ReportOutcome" }],
+      "Next": "ReportOutcome"
+    },
+    "Escalate": {
+      "Comment": "Nobody approved in time: mark the card, ping the approvers, change nothing.",
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${report_arn}",
+        "Payload": { "mode": "expired", "state.$": "$" }
+      },
+      "TimeoutSeconds": 60,
+      "Retry": [{ "ErrorEquals": ["States.ALL"], "IntervalSeconds": 5, "MaxAttempts": 2, "BackoffRate": 2 }],
+      "End": true
+    },
+    "ReportOutcome": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${report_arn}",
+        "Payload": { "mode": "outcome", "state.$": "$" }
       },
       "TimeoutSeconds": 60,
       "Retry": [{ "ErrorEquals": ["States.ALL"], "IntervalSeconds": 5, "MaxAttempts": 2, "BackoffRate": 2 }],

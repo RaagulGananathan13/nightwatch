@@ -27,6 +27,7 @@ GIT_SHA := $(shell git rev-parse --short=12 HEAD 2>/dev/null || echo dev)
 
 .PHONY: help install fmt lint typecheck test check security tf-fmt tf-check clean build
 .PHONY: bootstrap-plan bootstrap-apply init plan apply destroy chaos-bad-deploy chaos-error-flag
+.PHONY: chaos-fix chaos-fix-flag discord-endpoint
 
 help: ## Show this list
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-15s %s\n", $$1, $$2}'
@@ -73,7 +74,7 @@ tf-check: ## terraform fmt check, then validate every module (no AWS access need
 
 build: ## Build the Lambda zips into .build/ (ShopLite, NightWatch, and the arm64 dependency layer)
 	$(PY) -m scripts.build_lambda shoplite --out .build/shoplite-api.zip --version $(GIT_SHA)
-	$(PY) -m scripts.build_lambda nightwatch --out .build/nightwatch.zip
+	$(PY) -m scripts.build_lambda nightwatch --out .build/nightwatch.zip --extra runbooks:nightwatch/runbooks
 	$(PY) -m scripts.build_layer --out .build/nightwatch-deps.zip
 
 # --- AWS. Plans are free to run; every apply uses a saved plan you have reviewed. ---
@@ -104,6 +105,15 @@ chaos-bad-deploy: ## Deploy a buggy ShopLite commit for 4 minutes, check the dia
 
 chaos-error-flag: ## Turn on ShopLite's error flag for 4 minutes and check NightWatch's response
 	$(PY) -m chaos.error_flag
+
+chaos-fix: ## Deploy a buggy commit and keep it live until you approve NightWatch's rollback
+	$(PY) -m chaos.bad_deploy --let-nightwatch-fix
+
+chaos-fix-flag: ## Turn on the error flag and keep it on until you approve NightWatch's fix
+	$(PY) -m chaos.error_flag --let-nightwatch-fix
+
+discord-endpoint: ## Point the Discord application's button clicks at NightWatch (after apply)
+	$(PY) -m scripts.discord_endpoint --url "$$(terraform -chdir=infra/envs/dev output -raw discord_interactions_url)"
 
 clean: ## Remove caches and build output
 	rm -rf .pytest_cache .mypy_cache .ruff_cache .coverage htmlcov build dist .build *.egg-info

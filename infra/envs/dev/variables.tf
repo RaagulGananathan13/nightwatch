@@ -58,3 +58,15 @@ variable "canary_schedule" {
   type        = string
   default     = "rate(1 minute)"
 }
+
+variable "discord_channel_id" {
+  description = "Discord channel where approval cards are posted (#incidents)."
+  type        = string
+  default     = "1565026740634390659"
+}
+
+variable "discord_public_key" {
+  description = "Public key of the NightWatch Discord application (Developer Portal, General Information)."
+  type        = string
+  default     = "97504cad6de4bc986b0886ca787896e87e5aacf8e015d99ce863040e29d086d1"
+}

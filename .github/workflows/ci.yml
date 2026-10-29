@@ -68,7 +68,7 @@ jobs:
       - name: Build the Lambda zips the plan reads
         run: |
           python -m scripts.build_lambda shoplite --out .build/shoplite-api.zip --version "${GITHUB_SHA::12}"
-          python -m scripts.build_lambda nightwatch --out .build/nightwatch.zip
+          python -m scripts.build_lambda nightwatch --out .build/nightwatch.zip --extra runbooks:nightwatch/runbooks
           python -m scripts.build_layer --out .build/nightwatch-deps.zip
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:

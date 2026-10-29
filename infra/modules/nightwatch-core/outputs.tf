@@ -27,3 +27,12 @@ output "state_machine_arn" {
 output "investigate_function_name" {
   value = aws_lambda_function.investigate.function_name
 }
+
+output "interactions_url" {
+  description = "Discord's Interactions Endpoint URL for the NightWatch application."
+  value       = aws_lambda_function_url.interactions.function_url
+}
+
+output "kill_switch_parameter" {
+  value = aws_ssm_parameter.kill_switch.name
+}

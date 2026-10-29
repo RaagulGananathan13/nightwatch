@@ -50,6 +50,10 @@ module "nightwatch_core" {
     table_arns     = [module.shoplite.table_arn]
     parameter_arns = [module.shoplite.flags_parameter_arn]
   }
+
+  # Approval buttons (Phase 4). Neither value is secret; the bot token stays in SSM.
+  discord_channel_id = var.discord_channel_id
+  discord_public_key = var.discord_public_key
 }
 
 module "alarms" {
