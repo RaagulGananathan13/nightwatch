@@ -35,6 +35,9 @@ from nightwatch.common.timeutil import to_iso
 
 _DECISION: TypeAdapter[Any] = TypeAdapter(AgentDecision)
 _RETRY = "That reply was not one JSON object in either shape. Reply again with only the JSON."
+# The first log queries cover this long before the incident. Longer windows pull in errors from
+# earlier, unrelated incidents (the evaluation showed one outweighing a new deploy's errors).
+LOG_LOOKBACK_MINUTES = 10
 _NO_MORE_TOOLS = 'No more tools are available. Reply now with "action": "final".'
 _LAST_TURN = '\n\nThis is your last turn: reply with "action": "final".'
 
@@ -157,7 +160,8 @@ def initial_plan(ctx: ToolContext) -> list[tuple[str, dict[str, Any], str]]:
             (RUNTIME_ERRORS, "runtime_errors"),
             (LAMBDA_REPORTS, "lambda_reports"),
         ):
-            steps.append(("query_logs", {"log_group": group, "query": query, "minutes": 30}, label))
+            args = {"log_group": group, "query": query, "minutes": LOG_LOOKBACK_MINUTES}
+            steps.append(("query_logs", args, label))
     for metric in incident_metrics(ctx)[:3]:
         steps.append(("get_metric_series", metric, "metric"))
     if service.lambda_functions:

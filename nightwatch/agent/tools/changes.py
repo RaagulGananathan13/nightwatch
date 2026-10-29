@@ -47,8 +47,12 @@ def run(ctx: ToolContext, args: Args) -> ToolResult:
     for function in ctx.service.lambda_functions:
         found, live[function] = _deploys(ctx, function, since, until)
         changes += found
+    parameters: dict[str, str] = {}
     for name in ctx.service.ssm_parameters:
-        changes += _parameter_changes(ctx, name, since, until)
+        found, now = _parameter_changes(ctx, name, since, until)
+        changes += found
+        if now is not None:
+            parameters[name] = now
     for table in ctx.service.dynamodb_tables:
         changes += _capacity_changes(ctx, table, since, until)
     trail = _cloudtrail(ctx, since, until)
@@ -69,6 +73,8 @@ def run(ctx: ToolContext, args: Args) -> ToolResult:
     for function, info in live.items():
         if info:
             lines.append(f"Live now: {function} version {info['version']} ({info['description']}).")
+    for name, value in parameters.items():
+        lines.append(f"Now: {name} = {value}")
     data = {
         "changes": [
             {
@@ -81,6 +87,7 @@ def run(ctx: ToolContext, args: Args) -> ToolResult:
             for c in changes
         ],
         "live": live,
+        "parameters": parameters,
     }
     return ToolResult("\n".join(lines), data)
 
@@ -189,21 +196,25 @@ def _commit(ctx: ToolContext, sha: str) -> dict[str, str] | None:
 
 def _parameter_changes(
     ctx: ToolContext, name: str, since: datetime, until: datetime
-) -> list[Change]:
+) -> tuple[list[Change], str | None]:
+    """Changes in the window, and the value it holds now (the newest version)."""
     changes = []
+    newest: tuple[int, str] | None = None
     paginator = ctx.aws.ssm.get_paginator("get_parameter_history")
     for page in paginator.paginate(Name=name, WithDecryption=False):
         for item in page["Parameters"]:
-            at = item["LastModifiedDate"]
-            if not since <= at <= until:
-                continue
             value = (
                 item.get("Value", "") if item.get("Type") == "String" else "(secure value hidden)"
             )
+            if newest is None or int(item["Version"]) > newest[0]:
+                newest = (int(item["Version"]), value[:200])
+            at = item["LastModifiedDate"]
+            if not since <= at <= until:
+                continue
             who = str(item.get("LastModifiedUser", "unknown")).rsplit("/", 1)[-1]
             summary = f"parameter {name} set to {value[:200]} (version {item['Version']}, by {who})"
             changes.append(Change(at, "config", name, summary, {"value": value[:500], "by": who}))
-    return changes
+    return changes, newest[1] if newest else None
 
 
 def _capacity_changes(

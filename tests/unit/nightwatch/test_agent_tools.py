@@ -146,6 +146,7 @@ def test_recent_changes_sees_flags_and_capacity() -> None:
         in summary
     )
     assert "DynamoDB table shoplite capacity lowered, now 5 read / 1 write units" in summary
+    assert 'Now: /shoplite/flags = {"error_rate": 0.8}' in summary  # the value it holds today
 
 
 def test_describe_resource_never_shows_secret_values() -> None:
