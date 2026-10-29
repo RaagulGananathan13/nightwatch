@@ -1,0 +1,18 @@
+# What NightWatch knows about each service it watches (spec F3: get_service_info).
+#
+# The investigation agent only reads resources listed here, so a log line or an LLM answer can
+# never point it at something else. Alarms join a service through their nightwatch:service tag.
+
+services:
+  shoplite:
+    description: Demo store API. One Lambda behind an IAM-auth function URL, backed by DynamoDB.
+    owner: RaagulGananathan13
+    repository: RaagulGananathan13/nightwatch
+    lambda_functions: [shoplite-api]
+    lambda_alias: live
+    log_groups: [/aws/lambda/shoplite-api]
+    dynamodb_tables: [shoplite]
+    ssm_parameters: [/shoplite/flags]
+    dependencies: [dynamodb:shoplite, ssm:/shoplite/flags]
+    deploys: GitHub Actions deploys every merge to main as a new Lambda version (description sha=<commit>) and moves the live alias.
+    runbooks: []  # approval-gated fixes arrive in Phase 4
