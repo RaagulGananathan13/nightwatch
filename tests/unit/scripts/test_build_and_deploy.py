@@ -68,4 +68,4 @@ def test_deploy_publishes_a_described_version_and_moves_the_alias() -> None:
     alias = client.get_alias(FunctionName="shoplite-api", Name="live")
     assert alias["FunctionVersion"] == result["version"]
     version = client.get_function(FunctionName="shoplite-api", Qualifier=result["version"])
-    assert version["Configuration"]["Description"] == "sha=abc123 run=7"
+    assert version["Configuration"]["Description"] == "sha=abc123 run=7 prev=1"  # rollback target

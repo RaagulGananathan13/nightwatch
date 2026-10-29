@@ -8,7 +8,15 @@ import pytest
 from nightwatch.agent.services import service_info
 from nightwatch.agent.tools import ToolContext, ToolError, run_tool
 from nightwatch.common.models import Incident
-from tests.unit.nightwatch.fakes import BAD_SHA, T0, FakeAws, FakeDynamo, FakeLogs, FakeSsm
+from tests.unit.nightwatch.fakes import (
+    BAD_SHA,
+    T0,
+    FakeAws,
+    FakeDynamo,
+    FakeLambda,
+    FakeLogs,
+    FakeSsm,
+)
 
 
 def context(aws: Any = None, store: Any = None) -> ToolContext:
@@ -99,6 +107,15 @@ def test_recent_changes_finds_the_deploy_with_its_commit() -> None:
     assert deploy["live"] is True
     assert deploy["commit"]["author"] == "someone"
     assert "version 4" not in result.data["changes"][0]["summary"].split(";")[0]
+
+
+def test_recent_changes_names_the_version_that_was_live_before_the_deploy() -> None:
+    # Version 4 is the previous number, but version 3 was live: 4 may be a bad build too.
+    result = run_tool("recent_changes", {}, context(FakeAws(lambda_=FakeLambda(prev="3"))))
+    assert "replaced version 3, which was live before it" in result.summary
+    assert "previous version 4" not in result.summary
+    assert result.data["changes"][0]["rollback_to"] == "3"
+    assert result.data["changes"][0]["sha"] == BAD_SHA
 
 
 def test_recent_changes_sees_flags_and_capacity() -> None:

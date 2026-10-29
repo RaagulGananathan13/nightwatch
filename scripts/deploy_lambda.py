@@ -25,14 +25,17 @@ if TYPE_CHECKING:
 def deploy(
     client: LambdaClient, function: str, code: bytes, alias: str, description: str
 ) -> dict[str, Any]:
+    # The version live right now is the one to roll back to. Record it in the new version's
+    # description ("prev=N"); "the previous version number" may itself be a bad build.
+    previous = client.get_alias(FunctionName=function, Name=alias)["FunctionVersion"]
+    suffix = f" prev={previous}"
     update = client.update_function_code(FunctionName=function, ZipFile=code)
     client.get_waiter("function_updated_v2").wait(FunctionName=function)
     published = client.publish_version(
         FunctionName=function,
-        Description=description[:256],
+        Description=description[: 256 - len(suffix)] + suffix,
         CodeSha256=update["CodeSha256"],  # refuse to publish if someone else changed the code
     )
-    previous = client.get_alias(FunctionName=function, Name=alias)["FunctionVersion"]
     client.update_alias(FunctionName=function, Name=alias, FunctionVersion=published["Version"])
     return {
         "function": function,

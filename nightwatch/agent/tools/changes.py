@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field
 from nightwatch.agent.tools import Tool, ToolContext, ToolResult
 
 _SHA = re.compile(r"sha=([0-9a-f]{7,40})")
+_PREV = re.compile(r"\bprev=(\d+)\b")  # the version live before this deploy
 MAX_LINES = 12
 
 
@@ -111,7 +112,10 @@ def _deploys(
         summary = f"{function} version {version['Version']} published"
         summary += " and now live" if is_live else ""
         summary += f" ({description})"
-        if previous:
+        rollback_to = _PREV.search(description)
+        if rollback_to:
+            summary += f"; replaced version {rollback_to.group(1)}, which was live before it"
+        elif previous:
             summary += f"; previous version {previous}"
         details: dict[str, Any] = {
             "version": version["Version"],
@@ -126,6 +130,8 @@ def _deploys(
             if commit:
                 details["commit"] = commit
                 summary += f"; commit '{commit['message']}' by {commit['author']}"
+        if rollback_to:
+            details["rollback_to"] = rollback_to.group(1)
         changes.append(Change(at, "deploy", function, summary, details))
 
     live_info: dict[str, Any] = {}

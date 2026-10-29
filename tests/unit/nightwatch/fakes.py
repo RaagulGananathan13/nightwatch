@@ -26,10 +26,14 @@ class Paginator:
 
 
 class FakeLambda:
+    def __init__(self, prev: str | None = None) -> None:
+        self.prev = prev  # "prev=N" in version 5's description, as deploy_lambda now writes
+
     def get_alias(self, **_: Any) -> dict[str, Any]:
         return {"FunctionVersion": "5"}
 
     def get_paginator(self, name: str) -> Paginator:
+        bad = f"sha={BAD_SHA} by=chaos-lab: read prices from the new price field"
         versions = [
             {"Version": "$LATEST", "LastModified": lambda_time(T0), "Description": ""},
             {
@@ -40,7 +44,7 @@ class FakeLambda:
             {
                 "Version": "5",
                 "LastModified": lambda_time(T0 - timedelta(minutes=2)),
-                "Description": f"sha={BAD_SHA} by=chaos-lab: read prices from the new price field",
+                "Description": f"{bad} prev={self.prev}" if self.prev else bad,
             },
         ]
         return Paginator([{"Versions": versions}])
@@ -156,6 +160,10 @@ class FakeSsm:
 
     def get_paginator(self, name: str) -> Paginator:
         return Paginator([{"Parameters": self.history}])
+
+    def get_parameter(self, **kwargs: Any) -> dict[str, Any]:
+        value = self.history[-1]["Value"] if self.history else "{}"
+        return {"Parameter": {"Name": kwargs["Name"], "Value": value}}
 
 
 class FakeCloudTrail:
