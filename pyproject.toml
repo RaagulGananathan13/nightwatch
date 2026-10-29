@@ -84,7 +84,7 @@ target-version = ["py313"]
 
 [tool.mypy]
 python_version = "3.13"
-files = ["nightwatch", "shoplite", "scripts", "chaos", "tests"]
+files = ["nightwatch", "shoplite", "scripts", "chaos", "eval", "tests"]
 plugins = ["pydantic.mypy"]
 strict = true
 warn_unreachable = true

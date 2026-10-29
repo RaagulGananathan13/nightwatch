@@ -18,5 +18,6 @@ true $0 per month or to close a gap found while reviewing the spec.
 | [0010](0010-one-active-incident-per-service.md) | One active incident per service, with optimistic locking | Accepted |
 | [0011](0011-evidence-ledger-guard-and-workflow.md) | Evidence ledger, hallucination guard and the investigation workflow | Accepted |
 | [0012](0012-approval-gated-remediation.md) | Approval-gated remediation: runbooks, Discord buttons and verification | Accepted |
+| [0013](0013-evaluating-nightwatch.md) | How NightWatch is evaluated | Accepted |
 
 New records copy the layout of an existing one: Context, Decision, Consequences.

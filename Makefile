@@ -15,7 +15,7 @@ else
 endif
 PY := $(BIN)/python
 
-PY_SRC := nightwatch shoplite scripts chaos tests
+PY_SRC := nightwatch shoplite scripts chaos eval tests
 TF_DIR := infra
 # Root configurations. Validating a root also validates every module it uses.
 TF_ROOTS := $(TF_DIR)/bootstrap $(TF_DIR)/envs/dev
@@ -27,7 +27,7 @@ GIT_SHA := $(shell git rev-parse --short=12 HEAD 2>/dev/null || echo dev)
 
 .PHONY: help install fmt lint typecheck test check security tf-fmt tf-check clean build
 .PHONY: bootstrap-plan bootstrap-apply init plan apply destroy chaos-bad-deploy chaos-error-flag
-.PHONY: chaos-fix chaos-fix-flag discord-endpoint
+.PHONY: chaos chaos-list chaos-fix chaos-fix-flag discord-endpoint eval
 
 help: ## Show this list
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-15s %s\n", $$1, $$2}'
@@ -58,7 +58,7 @@ test: ## Unit tests with coverage (integration tests are opt-in: pytest -m integ
 check: lint typecheck test ## Everything CI runs on the Python code
 
 security: ## bandit (code) and pip-audit (known-vulnerable dependencies)
-	$(PY) -m bandit -c pyproject.toml -r nightwatch shoplite scripts chaos -q
+	$(PY) -m bandit -c pyproject.toml -r nightwatch shoplite scripts chaos eval -q
 	$(PY) -m pip_audit --skip-editable --progress-spinner off
 
 tf-fmt: ## Format Terraform files
@@ -105,6 +105,15 @@ chaos-bad-deploy: ## Deploy a buggy ShopLite commit for 4 minutes, check the dia
 
 chaos-error-flag: ## Turn on ShopLite's error flag for 4 minutes and check NightWatch's response
 	$(PY) -m chaos.error_flag
+
+chaos: ## Run one chaos scenario: make chaos NAME=lambda-timeout (see make chaos-list)
+	$(PY) -m chaos $(NAME)
+
+chaos-list: ## List every chaos scenario and its ground truth
+	$(PY) -m chaos --list
+
+eval: ## Run every chaos scenario and score NightWatch (about 2.5 hours), writes eval/results.md
+	$(PY) -m eval.run
 
 chaos-fix: ## Deploy a buggy commit and keep it live until you approve NightWatch's rollback
 	$(PY) -m chaos.bad_deploy --let-nightwatch-fix
