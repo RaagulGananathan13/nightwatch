@@ -35,6 +35,8 @@ def scenario(lab: FlagLab, error_rate: float) -> Scenario:
         inject=inject,
         expect=["/shoplite/flags", "error_rate", "feature flag"],
         still_broken=lambda: bool(lab.get_flags()),
+        slug="error-flag",
+        fix="reset-feature-flags",
     )
 
 

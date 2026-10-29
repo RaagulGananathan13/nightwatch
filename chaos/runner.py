@@ -9,6 +9,9 @@ The verdict is the acceptance check for Phases 2 and 3:
 ends: Approve it in Discord and it must run, ShopLite must recover and verification must pass;
 Reject it and nothing may change. The audit log must show the whole chain.
 
+``execute`` is what the evaluation harness (``eval/``) builds on: the same run, returning
+what happened instead of only a pass or fail.
+
 The fault is always undone at the end, even after Ctrl+C or an error.
 """
 
@@ -17,6 +20,7 @@ from __future__ import annotations
 import time
 from collections import Counter
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, Protocol
@@ -27,6 +31,7 @@ from nightwatch.common.timeutil import utcnow
 from nightwatch.remediation.actions import FINAL, Action
 
 SERVICE = "shoplite"
+OPEN_INCIDENT_WAIT = timedelta(minutes=15)
 # What a fix must leave in the audit log, in this order (spec F14).
 FIX_CHAIN = [
     "remediation_proposed",
@@ -41,6 +46,7 @@ class LabLike(Protocol):
     def get_flags(self) -> dict[str, Any]: ...
     def request(self, method: str, path: str, body: dict[str, Any] | None = None) -> int: ...
     def incidents_since(self, service: str, since: datetime) -> list[Incident]: ...
+    def incident_open(self, service: str) -> bool: ...
     def audit(self, incident_id: str) -> list[dict[str, Any]]: ...
     def seconds_until_new_incident(self, service: str) -> float: ...
 
@@ -55,53 +61,77 @@ class Scenario:
     ground_truth: str
     # Applies the fault (reporting through the given output function) and returns the undo.
     inject: Callable[[Callable[[str], None]], Callable[[], None]]
-    expect: list[str] = field(default_factory=list)  # the diagnosis must mention one of these
+    # The diagnosis must mention one of these. "a+b" means both a and b (any case).
+    expect: list[str] = field(default_factory=list)
     # True while the fault is still in place; used to show that rejecting a fix changes nothing.
     still_broken: Callable[[], bool] | None = None
+    slug: str = ""  # short name, e.g. "bad-deploy"
+    fix: str | None = None  # the runbook that fixes it
+    minutes: float = 4.0  # how long the fault stays on
+    parallel: int = 1  # requests sent at once in each round (load, for throttling)
+    pause: float = 2.0  # seconds between rounds
 
 
-def _ready(lab: LabLike, out: Callable[[str], None], sleep: Callable[[float], None]) -> bool:
-    flags = lab.get_flags()
-    if flags:
-        out(f"ShopLite already has flags set ({flags}). Clear them first; stopping.")
-        return False
-    wait = lab.seconds_until_new_incident(SERVICE)
-    if wait:
-        out(
-            "The last incident resolved recently, so new alarms would reopen it (flap window). "
-            f"Waiting {duration(timedelta(seconds=wait))} so this run gets its own incident..."
-        )
-        sleep(wait)
-    return True
+@dataclass
+class Outcome:
+    code: int  # 0 pass, 1 fail, 2 didn't start
+    started: datetime  # just before the fault was injected
+    faulted: datetime | None  # when the fault was in place
+    incidents: list[Incident] = field(default_factory=list)
+    statuses: Counter[int] = field(default_factory=Counter)
+
+
+def mentions(text: str, expect: list[str]) -> str | None:
+    """The first expected phrase found in ``text``; "a+b" needs both a and b."""
+    lowered = text.lower()
+    for phrase in expect:
+        if all(part.strip().lower() in lowered for part in phrase.split("+")):
+            return phrase
+    return None
 
 
 def run(
     lab: LabLike,
     scenario: Scenario,
-    minutes: float = 4.0,
+    minutes: float | None = None,
     recovery_minutes: float = 6.0,
     out: Callable[[str], None] = print,
     clock: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
     now: Callable[[], datetime] = utcnow,
 ) -> int:
-    if not _ready(lab, out, sleep):
-        return 2
+    return execute(lab, scenario, minutes, recovery_minutes, out, clock, sleep, now).code
+
+
+def execute(
+    lab: LabLike,
+    scenario: Scenario,
+    minutes: float | None = None,
+    recovery_minutes: float = 6.0,
+    out: Callable[[str], None] = print,
+    clock: Callable[[], float] = time.monotonic,
+    sleep: Callable[[float], None] = time.sleep,
+    now: Callable[[], datetime] = utcnow,
+) -> Outcome:
+    if not _ready(lab, out, sleep, clock):
+        return Outcome(2, now(), None)
 
     started = now()
     out(f"Injecting fault: {scenario.name}. Ground truth: {scenario.ground_truth}")
     undo = scenario.inject(out)
+    faulted = now()
     statuses: Counter[int] = Counter()
     shown: tuple[str, int, str | None] | None = None
     try:
-        deadline = clock() + minutes * 60
+        deadline = clock() + (minutes or scenario.minutes) * 60
         next_check = clock()
-        while clock() < deadline:
-            statuses[lab.request("GET", "/products")] += 1
-            if clock() >= next_check:
-                shown = _progress(lab, started, shown, out)
-                next_check = clock() + 10
-            sleep(2)
+        with _Traffic(lab, scenario.parallel) as traffic:
+            while clock() < deadline:
+                statuses.update(traffic.round())
+                if clock() >= next_check:
+                    shown = _progress(lab, started, faulted, shown, out)
+                    next_check = clock() + 10
+                sleep(scenario.pause)
     except KeyboardInterrupt:
         out("Stopping early (Ctrl+C).")
     finally:
@@ -110,7 +140,8 @@ def run(
 
     out(f"Requests sent: {sum(statuses.values())} ({_status_summary(statuses)})")
     incidents = _wait_for_recovery(lab, started, recovery_minutes, out, clock, sleep)
-    return _verdict(lab, incidents, started, scenario, out)
+    code = _verdict(lab, incidents, faulted, scenario, out)
+    return Outcome(code, started, faulted, incidents, statuses)
 
 
 def run_fix(
@@ -125,12 +156,13 @@ def run_fix(
 ) -> int:
     """Phase 4: keep the fault (and traffic) going until NightWatch's fix is approved and
     verified, or rejected, or ``wait_minutes`` pass. Then undo the fault regardless."""
-    if not _ready(lab, out, sleep):
+    if not _ready(lab, out, sleep, clock):
         return 2
 
     started = now()
     out(f"Injecting fault: {scenario.name}. Ground truth: {scenario.ground_truth}")
     undo = scenario.inject(out)
+    faulted = now()
     out(
         "The fault stays in place. When the approval card appears in Discord, click Approve "
         "(or Reject, to check that nothing changes)."
@@ -142,20 +174,21 @@ def run_fix(
     try:
         deadline = clock() + wait_minutes * 60
         next_check = clock()
-        while clock() < deadline:
-            statuses[lab.request("GET", "/products")] += 1
-            if clock() >= next_check:
-                shown = _progress(lab, started, shown, out)
-                action = _latest_action(lab, started)
-                if action and action.status != seen:
-                    seen = action.status
-                    out(f"  Fix '{action.title}' ({action.preview}): {action.status}")
-                if action and action.status in FINAL:
-                    break
-                next_check = clock() + 10
-            sleep(2)
-        else:
-            out(f"Gave up after {wait_minutes:g} min without a final answer on the fix.")
+        with _Traffic(lab, scenario.parallel) as traffic:
+            while clock() < deadline:
+                statuses.update(traffic.round())
+                if clock() >= next_check:
+                    shown = _progress(lab, started, faulted, shown, out)
+                    action = _latest_action(lab, started)
+                    if action and action.status != seen:
+                        seen = action.status
+                        out(f"  Fix '{action.title}' ({action.preview}): {action.status}")
+                    if action and action.status in FINAL:
+                        break
+                    next_check = clock() + 10
+                sleep(scenario.pause)
+            else:
+                out(f"Gave up after {wait_minutes:g} min without a final answer on the fix.")
         if scenario.still_broken:
             still_broken = scenario.still_broken()
     except KeyboardInterrupt:
@@ -166,8 +199,64 @@ def run_fix(
 
     out(f"Requests sent: {sum(statuses.values())} ({_status_summary(statuses)})")
     incidents = _wait_for_recovery(lab, started, recovery_minutes, out, clock, sleep)
-    code = _verdict(lab, incidents, started, scenario, out)
+    code = _verdict(lab, incidents, faulted, scenario, out)
     return max(code, _fix_verdict(lab, incidents, still_broken, out))
+
+
+class _Traffic:
+    """Sends GET /products: one request per round, or ``parallel`` at once for load."""
+
+    def __init__(self, lab: LabLike, parallel: int) -> None:
+        self._lab = lab
+        self._parallel = max(1, parallel)
+        self._pool: ThreadPoolExecutor | None = None
+
+    def __enter__(self) -> _Traffic:
+        if self._parallel > 1:
+            self._lab.request("GET", "/products")  # warm up credentials and the URL first
+            self._pool = ThreadPoolExecutor(self._parallel)
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        if self._pool:
+            self._pool.shutdown(wait=True)
+
+    def round(self) -> list[int]:
+        if self._pool is None:
+            return [self._lab.request("GET", "/products")]
+        futures = [
+            self._pool.submit(self._lab.request, "GET", "/products") for _ in range(self._parallel)
+        ]
+        return [future.result() for future in futures]
+
+
+def _ready(
+    lab: LabLike,
+    out: Callable[[str], None],
+    sleep: Callable[[float], None],
+    clock: Callable[[], float],
+) -> bool:
+    """Start only from a clean slate: no flags set, no open incident, past the flap window."""
+    flags = lab.get_flags()
+    if flags:
+        out(f"ShopLite already has flags set ({flags}). Clear them first; stopping.")
+        return False
+    deadline = clock() + OPEN_INCIDENT_WAIT.total_seconds()
+    if lab.incident_open(SERVICE):
+        out("ShopLite still has an open incident; waiting for its alarms to recover first...")
+        while lab.incident_open(SERVICE):
+            if clock() > deadline:
+                out("The open incident didn't resolve in 15 minutes; stopping.")
+                return False
+            sleep(30)
+    wait = lab.seconds_until_new_incident(SERVICE)
+    if wait:
+        out(
+            "The last incident resolved recently, so new alarms would reopen it (flap window). "
+            f"Waiting {duration(timedelta(seconds=wait))} so this run gets its own incident..."
+        )
+        sleep(wait)
+    return True
 
 
 def _wait_for_recovery(
@@ -185,6 +274,78 @@ def _wait_for_recovery(
         sleep(15)
         incidents = lab.incidents_since(SERVICE, started)
     return incidents
+
+
+def _progress(
+    lab: LabLike,
+    started: datetime,
+    faulted: datetime,
+    shown: tuple[str, int, str | None] | None,
+    out: Callable[[str], None],
+) -> tuple[str, int, str | None] | None:
+    incidents = lab.incidents_since(SERVICE, started)
+    if not incidents:
+        return shown
+    latest = incidents[-1]
+    state = (latest.id, latest.alert_count, latest.investigation)
+    if state != shown:
+        after = duration(latest.opened_at - faulted)
+        line = f"  {latest.label} {latest.status}: {latest.alert_count} alert(s), opened {after} after injection"
+        if latest.investigation:
+            line += f", investigation {latest.investigation}"
+        out(line)
+    return state
+
+
+def _verdict(
+    lab: LabLike,
+    incidents: list[Incident],
+    faulted: datetime,
+    scenario: Scenario,
+    out: Callable[[str], None],
+) -> int:
+    if not incidents:
+        out("FAIL: no incident was opened. Check the alarms and the nightwatch-ingest logs.")
+        return 1
+    problems: list[str] = []
+    for incident in incidents:
+        sent = sum(1 for e in lab.audit(incident.id) if e["event"] == "notification_sent")
+        out(
+            f"{incident.label}: {incident.status}, {incident.alert_count} alerts grouped "
+            f"({', '.join(sorted(incident.alarms))}), opened "
+            f"{duration(incident.opened_at - faulted)} after injection, {sent} Discord message(s)"
+        )
+        if sent != 1:
+            problems.append(f"{incident.label} posted {sent} Discord messages, expected 1")
+    if len(incidents) != 1:
+        problems.append(f"expected exactly 1 incident, got {len(incidents)}")
+
+    result = incidents[0].investigation_result or {}
+    diagnosis = result.get("diagnosis") or {}
+    hypotheses = diagnosis.get("hypotheses") or []
+    if incidents[0].investigation != "done" or not hypotheses:
+        problems.append(f"no diagnosis (investigation: {incidents[0].investigation})")
+    else:
+        top = hypotheses[0]
+        how = f"{result.get('method')} via {result.get('model') or 'rules'}"
+        out(f"Diagnosis ({how}): {diagnosis.get('summary')}")
+        out(
+            f"  Top hypothesis ({round(float(top.get('confidence', 0)) * 100)}%, "
+            f"{'verified' if top.get('verified') else 'UNVERIFIED'}, evidence "
+            f"{', '.join(top.get('evidence_ids', []))}): {top.get('statement')}"
+        )
+        text = f"{diagnosis.get('summary', '')} {top.get('statement', '')}"
+        if scenario.expect and not mentions(text, scenario.expect):
+            problems.append(f"the diagnosis does not mention {' or '.join(scenario.expect)}")
+        if not top.get("verified") or not top.get("evidence_ids"):
+            problems.append("the top hypothesis is not backed by verified evidence")
+
+    if problems:
+        for problem in problems:
+            out(f"FAIL: {problem}")
+        return 1
+    out("PASS: one incident, one Discord message, and a verified diagnosis naming the cause.")
+    return 0
 
 
 def _latest_action(lab: FixLabLike, started: datetime) -> Action | None:
@@ -234,77 +395,6 @@ def _fix_verdict(
         return 0
     out(f"FAIL: the fix ended as {action.status}, not verified or rejected.")
     return 1
-
-
-def _progress(
-    lab: LabLike,
-    started: datetime,
-    shown: tuple[str, int, str | None] | None,
-    out: Callable[[str], None],
-) -> tuple[str, int, str | None] | None:
-    incidents = lab.incidents_since(SERVICE, started)
-    if not incidents:
-        return shown
-    latest = incidents[-1]
-    state = (latest.id, latest.alert_count, latest.investigation)
-    if state != shown:
-        after = duration(latest.opened_at - started)
-        line = f"  {latest.label} {latest.status}: {latest.alert_count} alert(s), opened {after} after injection"
-        if latest.investigation:
-            line += f", investigation {latest.investigation}"
-        out(line)
-    return state
-
-
-def _verdict(
-    lab: LabLike,
-    incidents: list[Incident],
-    started: datetime,
-    scenario: Scenario,
-    out: Callable[[str], None],
-) -> int:
-    if not incidents:
-        out("FAIL: no incident was opened. Check the alarms and the nightwatch-ingest logs.")
-        return 1
-    problems: list[str] = []
-    for incident in incidents:
-        sent = sum(1 for e in lab.audit(incident.id) if e["event"] == "notification_sent")
-        out(
-            f"{incident.label}: {incident.status}, {incident.alert_count} alerts grouped "
-            f"({', '.join(sorted(incident.alarms))}), opened "
-            f"{duration(incident.opened_at - started)} after injection, {sent} Discord message(s)"
-        )
-        if sent != 1:
-            problems.append(f"{incident.label} posted {sent} Discord messages, expected 1")
-    if len(incidents) != 1:
-        problems.append(f"expected exactly 1 incident, got {len(incidents)}")
-
-    result = incidents[0].investigation_result or {}
-    diagnosis = result.get("diagnosis") or {}
-    hypotheses = diagnosis.get("hypotheses") or []
-    if incidents[0].investigation != "done" or not hypotheses:
-        problems.append(f"no diagnosis (investigation: {incidents[0].investigation})")
-    else:
-        top = hypotheses[0]
-        how = f"{result.get('method')} via {result.get('model') or 'rules'}"
-        out(f"Diagnosis ({how}): {diagnosis.get('summary')}")
-        out(
-            f"  Top hypothesis ({round(float(top.get('confidence', 0)) * 100)}%, "
-            f"{'verified' if top.get('verified') else 'UNVERIFIED'}, evidence "
-            f"{', '.join(top.get('evidence_ids', []))}): {top.get('statement')}"
-        )
-        text = f"{diagnosis.get('summary', '')} {top.get('statement', '')}".lower()
-        if scenario.expect and not any(word.lower() in text for word in scenario.expect):
-            problems.append(f"the diagnosis does not mention {' or '.join(scenario.expect)}")
-        if not top.get("verified") or not top.get("evidence_ids"):
-            problems.append("the top hypothesis is not backed by verified evidence")
-
-    if problems:
-        for problem in problems:
-            out(f"FAIL: {problem}")
-        return 1
-    out("PASS: one incident, one Discord message, and a verified diagnosis naming the cause.")
-    return 0
 
 
 def _status_summary(statuses: Counter[int]) -> str:

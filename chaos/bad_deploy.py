@@ -55,6 +55,8 @@ def scenario(lab: DeployLab) -> Scenario:
         inject=inject,
         expect=expect,
         still_broken=lambda: bool(bad) and lab.live_version() == bad[0],
+        slug="bad-deploy",
+        fix="rollback-lambda-alias",
     )
 
 

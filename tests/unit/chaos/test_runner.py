@@ -49,6 +49,9 @@ class FakeLab:
         self.diagnosis = diagnosis
         self.flap_wait = 0.0
         self.fail_requests = False
+        self.open_polls = 0  # an earlier incident stays open for this many checks
+        self.capacity = 5
+        self.env = {"TABLE_NAME": "shoplite"}
 
     # ShopLite
     def get_flags(self) -> dict[str, Any]:
@@ -69,6 +72,26 @@ class FakeLab:
     def live_version(self) -> str:
         return self.live
 
+    def deploy_settings(self, changes: dict[str, str], description: str) -> dict[str, Any]:
+        self.history.append(f"settings {changes}")
+        previous, self.live = self.live, "6"
+        original, self.env = dict(self.env), {**self.env, **changes}
+        return {"version": "6", "previous_version": previous, "original": original}
+
+    def restore_settings(self, variables: dict[str, str]) -> None:
+        self.env = dict(variables)
+        self.history.append("settings restored")
+
+    def read_capacity(self) -> int:
+        return self.capacity
+
+    def set_read_capacity(self, units: int) -> None:
+        self.capacity = units
+        self.history.append(f"read={units}")
+
+    def broken(self) -> bool:
+        return bool(self.flags) or self.live in ("5", "6") or self.capacity == 1
+
     def set_live_version(self, version: str) -> None:
         self.live = version
         self.history.append(f"live={version}")
@@ -77,17 +100,20 @@ class FakeLab:
         if self.fail_requests:
             raise RuntimeError("network down")
         self.requests += 1
-        return 502 if self.flags or self.live == "5" else 200
+        return 502 if self.broken() else 200
 
     # NightWatch
     def incidents_since(self, service: str, since: datetime) -> list[Incident]:
         if self.time.seconds < 90:
             return []
-        broken = bool(self.flags) or self.live == "5"
         return [
-            self._incident(n, "open" if broken else "resolved")
+            self._incident(n, "open" if self.broken() else "resolved")
             for n in range(1, self.incident_count + 1)
         ]
+
+    def incident_open(self, service: str) -> bool:
+        self.open_polls -= 1
+        return self.open_polls >= 0
 
     def audit(self, incident_id: str) -> list[dict[str, Any]]:
         return [{"event": "notification_sent"}] * self.messages
