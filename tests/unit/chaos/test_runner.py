@@ -1,0 +1,198 @@
+"""Chaos scenarios always clean up, and the verdict is the Phase 2 and 3 acceptance check."""
+
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+from chaos import bad_deploy, error_flag
+from chaos.lab import BUG
+from chaos.runner import Scenario, run
+from nightwatch.common.models import Incident
+
+START = datetime(2026, 10, 28, 10, 0, tzinfo=UTC)
+SHA = "3f2a9c1e4b5d"
+
+
+class FakeTime:
+    def __init__(self) -> None:
+        self.seconds = 0.0
+
+    def clock(self) -> float:
+        return self.seconds
+
+    def sleep(self, seconds: float) -> None:
+        self.seconds += seconds
+
+    def now(self) -> datetime:
+        return START + timedelta(seconds=self.seconds)
+
+
+class FakeLab:
+    def __init__(
+        self,
+        time: FakeTime,
+        incidents: int = 1,
+        messages: int = 1,
+        diagnosis: str = f"Deploy {SHA} broke listings.",
+    ) -> None:
+        self.time = time
+        self.flags: dict[str, Any] = {}
+        self.live = "4"
+        self.history: list[str] = []
+        self.requests = 0
+        self.incident_count = incidents
+        self.messages = messages
+        self.diagnosis = diagnosis
+        self.flap_wait = 0.0
+        self.fail_requests = False
+
+    # ShopLite
+    def get_flags(self) -> dict[str, Any]:
+        return dict(self.flags)
+
+    def set_flags(self, flags: dict[str, Any]) -> None:
+        self.flags = dict(flags)
+        self.history.append(f"flags={flags}")
+
+    def build_buggy_shoplite(self, subject: str) -> tuple[str, bytes]:
+        return SHA, b"zip"
+
+    def deploy(self, code: bytes, description: str) -> dict[str, str]:
+        self.history.append(f"deploy {description}")
+        previous, self.live = self.live, "5"
+        return {"version": "5", "previous_version": previous}
+
+    def set_live_version(self, version: str) -> None:
+        self.live = version
+        self.history.append(f"live={version}")
+
+    def request(self, method: str, path: str, body: Any = None) -> int:
+        if self.fail_requests:
+            raise RuntimeError("network down")
+        self.requests += 1
+        return 502 if self.flags or self.live == "5" else 200
+
+    # NightWatch
+    def incidents_since(self, service: str, since: datetime) -> list[Incident]:
+        if self.time.seconds < 90:
+            return []
+        broken = bool(self.flags) or self.live == "5"
+        return [
+            self._incident(n, "open" if broken else "resolved")
+            for n in range(1, self.incident_count + 1)
+        ]
+
+    def audit(self, incident_id: str) -> list[dict[str, Any]]:
+        return [{"event": "notification_sent"}] * self.messages
+
+    def seconds_until_new_incident(self, service: str) -> float:
+        return self.flap_wait
+
+    def _incident(self, number: int, status: str) -> Incident:
+        result = {
+            "method": "llm",
+            "model": "openai/gpt-oss-120b",
+            "diagnosis": {
+                "summary": self.diagnosis,
+                "hypotheses": [
+                    {
+                        "statement": self.diagnosis,
+                        "confidence": 0.9,
+                        "evidence_ids": ["E4"],
+                        "verified": True,
+                    }
+                ],
+            },
+        }
+        return Incident.model_validate(
+            {
+                "id": f"01JB{number:022d}",
+                "tenant_id": "default",
+                "number": number,
+                "service": "shoplite",
+                "title": "shoplite-lambda-errors",
+                "first_alarm": "shoplite-lambda-errors",
+                "status": status,
+                "opened_at": START + timedelta(seconds=70),
+                "updated_at": START,
+                "last_alert_at": START,
+                "alert_count": 2,
+                "alarms": {"shoplite-5xx-rate": "ALARM", "shoplite-lambda-errors": "ALARM"},
+                "investigation": "done",
+                "investigation_result": result,
+            }
+        )
+
+
+def go(lab: FakeLab, time: FakeTime, scenario: Scenario, lines: list[str]) -> int:
+    return run(
+        lab, scenario, 3, 6, out=lines.append, clock=time.clock, sleep=time.sleep, now=time.now
+    )
+
+
+def test_bad_deploy_passes_and_always_rolls_back() -> None:
+    time = FakeTime()
+    lab = FakeLab(time)
+    lines: list[str] = []
+    assert go(lab, time, bad_deploy.scenario(lab), lines) == 0
+    assert lab.history[0].startswith(f"deploy sha={SHA} by=chaos-lab")
+    assert lab.history[-1] == "live=4"
+    assert any(f"Deployed commit {SHA} as version 5 (was version 4)" in line for line in lines)
+    assert lines[-1].startswith("PASS")
+
+
+def test_diagnosis_must_name_the_commit() -> None:
+    time = FakeTime()
+    lab = FakeLab(time, diagnosis="DynamoDB is slow.")
+    lines: list[str] = []
+    assert go(lab, time, bad_deploy.scenario(lab), lines) == 1
+    assert f"FAIL: the diagnosis does not mention {SHA[:7]}" in lines
+
+
+def test_error_flag_scenario() -> None:
+    time = FakeTime()
+    lab = FakeLab(time, diagnosis="The feature flag /shoplite/flags set error_rate to 0.8.")
+    lines: list[str] = []
+    assert go(lab, time, error_flag.scenario(lab, 0.8), lines) == 0
+    assert lab.history == ["flags={'error_rate': 0.8}", "flags={}"]
+
+
+@pytest.mark.parametrize(("incidents", "messages"), [(2, 1), (1, 2)])
+def test_wrong_counts_fail(incidents: int, messages: int) -> None:
+    time = FakeTime()
+    lab = FakeLab(time, incidents, messages)
+    lines: list[str] = []
+    assert go(lab, time, bad_deploy.scenario(lab), lines) == 1
+    assert lab.live == "4"
+
+
+def test_undo_runs_even_when_something_breaks() -> None:
+    time = FakeTime()
+    lab = FakeLab(time)
+    lab.fail_requests = True
+    with pytest.raises(RuntimeError, match="network down"):
+        go(lab, time, bad_deploy.scenario(lab), [])
+    assert lab.live == "4"
+
+
+def test_waits_out_the_flap_window_and_refuses_active_faults() -> None:
+    time = FakeTime()
+    lab = FakeLab(time)
+    lab.flap_wait = 330.0
+    lines: list[str] = []
+    assert go(lab, time, bad_deploy.scenario(lab), lines) == 0
+    assert "Waiting 5m 30s" in lines[0]
+    busy = FakeLab(FakeTime())
+    busy.flags = {"hang": True}
+    assert go(busy, busy.time, bad_deploy.scenario(busy), []) == 2
+    assert busy.history == []
+
+
+def test_the_bug_still_matches_shoplite_source() -> None:
+    """If store.py changes, the bad-deploy patch must change with it."""
+    source = (Path(__file__).resolve().parents[3] / "shoplite" / "store.py").read_text(
+        encoding="utf-8"
+    )
+    assert BUG[0] in source

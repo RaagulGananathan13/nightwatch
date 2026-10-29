@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import json
+import subprocess  # nosec B404 - runs git with fixed arguments
+import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import boto3
@@ -13,11 +16,16 @@ from nightwatch.common.audit import AuditLog
 from nightwatch.common.incidents import IncidentStore
 from nightwatch.common.models import Incident
 from nightwatch.common.timeutil import utcnow
+from scripts.build_lambda import build
+from scripts.deploy_lambda import deploy
 from shoplite.canary import signed_request
 
 FLAGS_PARAM = "/shoplite/flags"
 FLAP_WINDOW = timedelta(minutes=10)  # matches nightwatch-ingest's FLAP_WINDOW_MINUTES
 FUNCTION = "shoplite-api"
+REPO = Path(__file__).resolve().parents[1]
+# The bad deploy's bug: ShopLite reads a "price" attribute that DynamoDB items don't have.
+BUG = ('int(item["price_cents"]["N"])', 'int(item["price"]["N"])')
 
 
 @dataclass
@@ -60,6 +68,51 @@ class Lab:
         status, _ = signed_request(method, self._url + path, credentials, self.region, body)
         return status
 
+    def build_buggy_shoplite(self, subject: str) -> tuple[str, bytes]:
+        """Commit the bug in a throwaway git worktree and build it. Returns (sha, zip bytes).
+
+        The commit is real (so the deploy names a real SHA) but local: it is never pushed, and
+        the worktree is removed afterwards.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            tree = Path(tmp) / "bad-deploy"
+            _git("worktree", "add", "--detach", str(tree), "HEAD")
+            try:
+                store = tree / "shoplite" / "store.py"
+                source = store.read_text(encoding="utf-8")
+                if BUG[0] not in source:
+                    raise RuntimeError("shoplite/store.py changed; update BUG in chaos/lab.py")
+                store.write_text(source.replace(BUG[0], BUG[1]), encoding="utf-8", newline="\n")
+                _git(
+                    "-C",
+                    str(tree),
+                    "-c",
+                    "user.name=NightWatch Chaos Lab",
+                    "-c",
+                    "user.email=chaos-lab@nightwatch.invalid",
+                    "commit",
+                    "--quiet",
+                    "--all",
+                    "--message",
+                    subject,
+                )
+                sha = _git("-C", str(tree), "rev-parse", "--short=12", "HEAD").strip()
+                package = Path(tmp) / "shoplite.zip"
+                build(tree / "shoplite", package, version=sha)
+                return sha, package.read_bytes()
+            finally:
+                _git("worktree", "remove", "--force", str(tree))
+
+    def deploy(self, code: bytes, description: str) -> dict[str, str]:
+        """Ship code the way CI does: a new version, then move the live alias."""
+        result = deploy(self.session.client("lambda"), FUNCTION, code, "live", description)
+        return {key: str(value) for key, value in result.items()}
+
+    def set_live_version(self, version: str) -> None:
+        self.session.client("lambda").update_alias(
+            FunctionName=FUNCTION, Name="live", FunctionVersion=version
+        )
+
     # NightWatch ------------------------------------------------------------------
 
     def incidents_since(self, service: str, since: datetime) -> list[Incident]:
@@ -82,3 +135,10 @@ class Lab:
     def audit(self, incident_id: str) -> list[dict[str, Any]]:
         log = AuditLog(self.table, self.tenant, "chaos", self.session.client("dynamodb"))
         return log.for_incident(incident_id)
+
+
+def _git(*args: str) -> str:
+    completed = subprocess.run(  # noqa: S603  # nosec B603 B607 - fixed git arguments
+        ["git", *args], cwd=REPO, check=True, capture_output=True, text=True  # noqa: S607
+    )
+    return completed.stdout
