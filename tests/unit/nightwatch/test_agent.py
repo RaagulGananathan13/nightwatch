@@ -89,7 +89,7 @@ def test_diagnosis_names_the_deploy_and_the_guard_checks_every_claim(store: Inci
     assert top.evidence_ids == ["E4", "E6"]
     assert not other.verified  # "99" appears nowhere in E9
     assert other.confidence <= 0.3
-    assert "'99' is not in the cited evidence" in other.notes[0]
+    assert "'99' is not in any gathered evidence" in other.notes[0]
 
     tools = [item.tool for item in ledger.items]
     assert tools[:5] == [

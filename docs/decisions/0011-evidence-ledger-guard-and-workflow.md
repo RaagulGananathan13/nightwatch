@@ -34,6 +34,11 @@ agent can't afford many round trips.
 
    A hypothesis that fails is marked *unverified*, its confidence is capped at 0.3, and it is
    shown with a warning in chat.
+
+   One relaxation came from the first live run. If a fact is in evidence the agent gathered but
+   cited from the wrong item, the guard adds the right source and notes it ("added E2, which
+   contains '92%'"). A fact found in no gathered evidence still fails. On 2026-10-29 the model
+   quoted the 5xx alarm's 92.3% error rate but cited the logs and changes instead of the alarm.
 5. **Prompt-injection defences.** These don't depend on the model behaving:
    - there are no write tools;
    - every tool checks its arguments against `services.yaml`;

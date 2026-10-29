@@ -55,6 +55,24 @@ def test_invented_numbers_are_flagged(statement: str, problem: str) -> None:
     assert result.confidence <= 0.3
 
 
+def test_a_fact_cited_from_the_wrong_item_is_repaired_not_rejected() -> None:
+    """Seen live on 2026-10-29: the model quoted the alarm's 92.3% but cited other evidence."""
+    alarm = Evidence(
+        id="E2",
+        tool="get_alarm_context",
+        summary="Now ALARM: Threshold Crossed: 1 datapoint [57.14285714285714] > 5.0",
+        started_at=NOW,
+    )
+    diagnosis = Diagnosis(
+        summary="s",
+        hypotheses=[Hypothesis(statement="Version 5 caused a 57% 5xx rate.", evidence_ids=["E1"])],
+    )
+    (checked,) = check(diagnosis, {**EVIDENCE, "E2": alarm}).hypotheses
+    assert checked.verified
+    assert checked.evidence_ids == ["E1", "E2"]
+    assert checked.notes == ["added E2, which contains '57%'"]
+
+
 def test_missing_and_unknown_evidence() -> None:
     assert not verdict("Something broke.", ids=["E7"]).verified
     assert "doesn't exist: E7" in verdict("x", ids=["E1", "E7"]).notes[0]

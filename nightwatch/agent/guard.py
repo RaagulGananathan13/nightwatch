@@ -1,9 +1,10 @@
 """Two safety checks around the LLM (spec F4 and section 11).
 
 ``check`` runs after the model answers. Every hypothesis must cite evidence that exists, and
-every number, version or commit SHA it states must appear in that evidence. Anything
-unsupported is marked "unverified" and its confidence is capped, so a hallucination can't
-pass as a finding.
+every number, version or commit SHA it states must appear in the evidence. If a fact is in
+evidence the agent gathered but cited from the wrong item, the guard adds the right source
+and notes it. A fact found nowhere marks the hypothesis "unverified" and caps its confidence,
+so a hallucination can't pass as a finding.
 
 ``redact`` runs before evidence reaches an external LLM. It removes emails, keys, tokens, IP
 addresses and card-like numbers, so customer data and secrets never leave the account.
@@ -20,11 +21,19 @@ from nightwatch.agent.models import Diagnosis, Evidence, Hypothesis
 
 UNVERIFIED_CONFIDENCE_CAP = 0.3
 
-# Numbers worth checking: 15, 15.5, 92%, 22:00:07. Lookarounds skip numbers glued to words,
-# like E3, p95, INC-002 or 5xx; single digits are too generic to check.
-_NUMBER = re.compile(r"(?<![\w\-.:])(\d{2,}(?:[.:]\d+)*|\d+\.\d+)(%?)(?![\w.:]*[A-Za-z])")
+# Numbers worth checking: 15, 15.5, 2,954, 92%, 22:00:07. Lookarounds skip numbers glued to
+# words, like E3, p95, INC-002 or 5xx; single digits are too generic to check.
+_NUMBER = re.compile(
+    r"(?<![\w\-.:,])(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d{2,}(?:[.:]\d+)*|\d+\.\d+)(%?)"
+    r"(?![\w.:]*[A-Za-z])"
+)
 _SHA = re.compile(r"\b(?=[0-9a-f]*[a-f])(?=[0-9a-f]*\d)[0-9a-f]{7,40}\b")
 _ANY_NUMBER = re.compile(r"\d+(?:\.\d+)?")
+# Parts of evidence that contain digits but aren't quantities, so they can't back a count.
+_NOT_QUANTITIES = re.compile(
+    r"\d{4}-\d{2}-\d{2}|\d{1,2}:\d{2}(?::\d{2})?(?:\.\d+)?|\b[0-9a-f]*[a-f][0-9a-f]*\d[0-9a-f]*\b"
+    r"|\b[0-9a-f]*\d[0-9a-f]*[a-f][0-9a-f]*\b"
+)
 
 
 def check(diagnosis: Diagnosis, evidence: Mapping[str, Evidence]) -> Diagnosis:
@@ -41,20 +50,23 @@ def _check_one(hypothesis: Hypothesis, evidence: Mapping[str, Evidence]) -> Hypo
     unknown = [i for i in hypothesis.evidence_ids if i not in evidence]
     if unknown:
         notes.append(f"cited evidence that doesn't exist: {', '.join(unknown)}")
+    unsupported: list[str] = []
     if not cited:
         notes.append("no evidence cited")
     else:
-        text = " ".join(_text(evidence[i]) for i in cited)
-        values = [float(n) for n in _ANY_NUMBER.findall(text)]
-        lowered = text.lower()
-        for sha in _SHA.findall(hypothesis.statement.lower()):
-            if sha not in lowered:
-                notes.append(f"'{sha}' is not in the cited evidence")
-        for number, percent in _NUMBER.findall(hypothesis.statement):
-            if _SHA.fullmatch(number) or _supported(number, percent, text, values):
+        for claim in _claims(hypothesis.statement):
+            if any(_backs(evidence[i], claim) for i in cited):
                 continue
-            notes.append(f"'{number}{percent}' is not in the cited evidence")
-    verified = bool(cited) and not any("not in the cited evidence" in n for n in notes)
+            # Citation repair: a fact the agent did gather, just cited from the wrong item, is
+            # not invented. Add its source and say so. A fact found nowhere stays unverified.
+            source = next((e.id for e in evidence.values() if _backs(e, claim)), None)
+            if source is None:
+                unsupported.append(claim)
+                notes.append(f"'{claim}' is not in any gathered evidence")
+            else:
+                cited.append(source)
+                notes.append(f"added {source}, which contains '{claim}'")
+    verified = bool(cited) and not unsupported
     confidence = (
         hypothesis.confidence if verified else min(hypothesis.confidence, UNVERIFIED_CONFIDENCE_CAP)
     )
@@ -68,16 +80,33 @@ def _check_one(hypothesis: Hypothesis, evidence: Mapping[str, Evidence]) -> Hypo
     )
 
 
-def _supported(number: str, percent: str, text: str, values: list[float]) -> bool:
-    if number + percent in text or number in text:
-        return True
-    if ":" in number:  # a time of day must match exactly
-        return False
+def _claims(statement: str) -> list[str]:
+    """The checkable facts in a statement: commit SHAs, then numbers (with their % sign)."""
+    shas = _SHA.findall(statement.lower())
+    numbers = [n + p for n, p in _NUMBER.findall(statement) if not _SHA.fullmatch(n)]
+    return [*shas, *numbers]
+
+
+def _backs(item: Evidence, claim: str) -> bool:
+    text = _text(item)
+    if _SHA.fullmatch(claim):
+        return claim in text.lower()
+    number, percent = (claim[:-1], "%") if claim.endswith("%") else (claim, "")
+    if ":" in number:  # a time of day must appear exactly
+        return number in text
+    quantities = _NOT_QUANTITIES.sub(" ", text.lower())
+    values = [float(n) for n in _ANY_NUMBER.findall(quantities.replace(",", ""))]
+    return _supported(number.replace(",", ""), percent, values)
+
+
+def _supported(number: str, percent: str, values: list[float]) -> bool:
+    """Does any evidence value round to the number as stated? "92%" accepts 92.3 or 0.923."""
+    decimals = len(number.split(".")[1]) if "." in number else 0
+    slack = 0.5 * 10**-decimals + 1e-9
     target = float(number)
-    candidates = [target, target / 100] if percent else [target]
-    return any(
-        abs(value - want) <= max(0.051, abs(want) * 0.02) for want in candidates for value in values
-    )
+    if percent:
+        return any(abs(v - target) <= slack or abs(v * 100 - target) <= slack for v in values)
+    return any(abs(v - target) <= slack for v in values)
 
 
 def _text(item: Evidence) -> str:
