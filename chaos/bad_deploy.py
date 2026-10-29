@@ -52,7 +52,9 @@ def scenario(lab: DeployLab) -> Scenario:
 
 
 def main() -> None:
-    from chaos.lab import Lab
+    from chaos.lab import Lab, utf8_console
+
+    utf8_console()
 
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(

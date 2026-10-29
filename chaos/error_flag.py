@@ -37,7 +37,9 @@ def scenario(lab: FlagLab, error_rate: float) -> Scenario:
 
 
 def main() -> None:
-    from chaos.lab import Lab
+    from chaos.lab import Lab, utf8_console
+
+    utf8_console()
 
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--error-rate", type=float, default=0.8, help="share of requests to fail")

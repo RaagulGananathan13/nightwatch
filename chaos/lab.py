@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess  # nosec B404 - runs git with fixed arguments
+import sys
 import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -135,6 +136,13 @@ class Lab:
     def audit(self, incident_id: str) -> list[dict[str, Any]]:
         log = AuditLog(self.table, self.tenant, "chaos", self.session.client("dynamodb"))
         return log.for_incident(incident_id)
+
+
+def utf8_console() -> None:
+    """Windows consoles default to cp1252, which can't print what LLMs write (e.g. "≈")."""
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if callable(reconfigure):
+        reconfigure(encoding="utf-8", errors="replace")
 
 
 def _git(*args: str) -> str:
