@@ -75,7 +75,7 @@ Phase 9 is tagged `v1.0`.
 | 5 | Chaos lab and evaluation harness (accuracy, time to diagnosis) | Done |
 | 6 | Incident memory, auto-revert, postmortems, ChatOps commands | Done |
 | 7 | Web dashboard (React and Cognito) | Done |
-| 8 | Fix-as-PR, alert-noise coach, predictions, status page, MCP server, cost guardian | In progress: fix-as-PR and alert coach done |
+| 8 | Fix-as-PR, alert-noise coach, predictions, status page, MCP server, cost guardian | In progress: fix-as-PR, alert coach and forecasts done |
 | 9 | Multi-account connect, docs, security review, launch | Planned |
 
 ## Cost
@@ -218,6 +218,19 @@ It suggested requiring 2 bad minutes out of 3, and said to keep `shoplite-dynamo
 Those pages were the chaos lab's own experiments, which the lab undid, so "cleared by itself"
 is literally true here. The report is on the dashboard's Alarms page and is posted to Discord
 every Monday ([ADR 0017](docs/decisions/0017-alert-quality-coach.md)).
+
+**Phase 8, predictive warnings (2026-10-30, `make forecast`).** The first run made 6
+forecasts. The free tiers are far off:
+- 32,566 Lambda requests so far this month, heading for 4% of the free million;
+- Lambda compute and log ingestion both under 1% of theirs;
+- at most 17 functions running at once, of the account's limit of 400.
+
+Two warnings went to Discord. ShopLite's error budget is spent 20 times over: 2,926 failed
+requests where a 99.5% target allows 146. Its table's busiest hour of reads is also climbing
+toward the 5 provisioned units, and the trend reaches them around 3 November. The chaos lab's
+experiments caused both. Forecasts run every morning and appear on the dashboard's Forecasts
+page. Discord hears only when one gets worse
+([ADR 0018](docs/decisions/0018-predictive-warnings.md)).
 
 Earlier runs against the deployed stack, from 2026-10-28:
 
