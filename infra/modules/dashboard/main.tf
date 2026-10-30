@@ -379,46 +379,10 @@ data "aws_cloudfront_origin_request_policy" "api" {
   name = "Managed-AllViewerExceptHostHeader"
 }
 
-resource "aws_cloudfront_response_headers_policy" "dashboard" {
-  name    = "nightwatch-dashboard"
-  comment = "Security headers for the NightWatch dashboard"
-
-  security_headers_config {
-    content_security_policy {
-      override = true
-      content_security_policy = join("; ", [
-        "default-src 'self'",
-        "connect-src 'self' https://${local.login}",
-        "img-src 'self' data:",
-        "style-src 'self'",
-        "script-src 'self'",
-        "object-src 'none'",
-        "base-uri 'self'",
-        "frame-ancestors 'none'",
-        "form-action 'self' https://${local.login}",
-      ])
-    }
-
-    content_type_options {
-      override = true
-    }
-
-    frame_options {
-      frame_option = "DENY"
-      override     = true
-    }
-
-    referrer_policy {
-      referrer_policy = "same-origin"
-      override        = true
-    }
-
-    strict_transport_security {
-      access_control_max_age_sec = 31536000
-      include_subdomains         = true
-      override                   = true
-    }
-  }
+# HSTS, nosniff, X-Frame-Options and a referrer policy. The Content Security Policy is a
+# <meta> tag in index.html (dashboard/vite.config.ts), so no custom policy is needed.
+data "aws_cloudfront_response_headers_policy" "security" {
+  name = "Managed-SecurityHeadersPolicy"
 }
 
 resource "aws_cloudfront_distribution" "dashboard" {
@@ -462,7 +426,7 @@ resource "aws_cloudfront_distribution" "dashboard" {
     cached_methods             = ["GET", "HEAD"]
     compress                   = true
     cache_policy_id            = data.aws_cloudfront_cache_policy.static.id
-    response_headers_policy_id = aws_cloudfront_response_headers_policy.dashboard.id
+    response_headers_policy_id = data.aws_cloudfront_response_headers_policy.security.id
   }
 
   ordered_cache_behavior {
@@ -474,7 +438,7 @@ resource "aws_cloudfront_distribution" "dashboard" {
     compress                   = true
     cache_policy_id            = data.aws_cloudfront_cache_policy.none.id
     origin_request_policy_id   = data.aws_cloudfront_origin_request_policy.api.id
-    response_headers_policy_id = aws_cloudfront_response_headers_policy.dashboard.id
+    response_headers_policy_id = data.aws_cloudfront_response_headers_policy.security.id
   }
 
   restrictions {

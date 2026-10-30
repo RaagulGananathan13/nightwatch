@@ -35,9 +35,11 @@ public internet.
    signature-checked against the service's approvers. A read-only API can't be used to change
    anything, even with a stolen token.
 5. **The browser is locked down.**
-   - **Strict CSP.** The Content Security Policy allows scripts and styles only from the site
-     itself, network calls only to the site and the login page, and no framing.
-   - **Security headers:** HSTS, `nosniff`, `DENY` framing and a same-origin referrer policy.
+   - **Strict CSP.** A `<meta>` tag in the built page sets the Content Security Policy. It
+     allows scripts and styles only from the site itself, and network calls only to the site
+     and Cognito.
+   - **Security headers.** CloudFront's managed `SecurityHeadersPolicy` adds HSTS, `nosniff`,
+     `X-Frame-Options` (no framing by other sites) and a referrer policy.
    - **Text only.** Postmortems are parsed into React elements, never injected as HTML.
 6. **Hash routes** (`#/incidents/<id>`). Every page is the same `index.html`, so S3 needs no
    rewrite rules, and an API error is never mistaken for a missing page.
