@@ -12,14 +12,16 @@ always-free services and free LLM tiers.
 [![CI](https://github.com/RaagulGananathan13/nightwatch/actions/workflows/ci.yml/badge.svg)](https://github.com/RaagulGananathan13/nightwatch/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-> **Status: Phase 5 of 9 done.** NightWatch groups alarms into one incident per service, then an
+> **Status: Phase 6 of 9 done.** NightWatch groups alarms into one incident per service, then an
 > AI agent gathers evidence and posts a diagnosis that cites it. When the evidence matches a
 > reviewed runbook, it proposes the fix, and the fix runs only after a human clicks **Approve** in
 > Discord. Then it is verified. In an evaluation on 7 real injected faults, NightWatch named the
 > root cause of **all 7**. Its diagnosis reached Discord a mean **46 seconds** after the alarm,
 > every cited fact checked out against the evidence, and it proposed the right fix every time,
-> all at $0 ([results](eval/results.md)). Next are incident memory, postmortems and ChatOps
-> (Phase 6). See the [roadmap](#roadmap) and the [infrastructure guide](infra/README.md).
+> all at $0 ([results](eval/results.md)). It also remembers past incidents, so a repeat
+> failure is labelled with the earlier one. Every resolved incident gets a postmortem, and
+> Discord's `/nw` commands can ask it questions. Next is the web dashboard (Phase 7). See the
+> [roadmap](#roadmap) and the [infrastructure guide](infra/README.md).
 
 ## How it works
 
@@ -70,7 +72,7 @@ Phase 9 is tagged `v1.0`.
 | 3 | Investigation agent, evidence ledger, hallucination guard | Done |
 | 4 | Runbooks, approval buttons, remediation, audit log, kill switch | Done |
 | 5 | Chaos lab and evaluation harness (accuracy, time to diagnosis) | Done |
-| 6 | Incident memory, auto-revert, postmortems, ChatOps commands | Planned |
+| 6 | Incident memory, auto-revert, postmortems, ChatOps commands | Done |
 | 7 | Web dashboard (React and Cognito) | Planned |
 | 8 | Fix-as-PR, alert-noise coach, predictions, status page, MCP server, cost guardian | Planned |
 | 9 | Multi-account connect, docs, security review, launch | Planned |
@@ -137,6 +139,15 @@ own fix if things got worse. **Reject** changes nothing. Setting `/nightwatch/ki
 `true` stops every fix ([ADR 0012](docs/decisions/0012-approval-gated-remediation.md),
 [runbooks](runbooks/README.md)).
 
+NightWatch remembers every incident and writes its postmortem (Phase 6):
+- When an incident resolves, a blameless postmortem lands in S3, and the Discord card links to
+  it.
+- The incident is added to NightWatch's memory. A repeat of the same failure shows "Looks like
+  INC-015 ..." on its card.
+- In Discord, `/nw status` lists open incidents and `/nw ack INC-12` takes one.
+- `/nw ask why is checkout slow?` runs a read-only investigation and posts the answer with its
+  evidence ([ADR 0014](docs/decisions/0014-memory-postmortems-chatops.md)).
+
 ### Measured so far
 
 **Evaluation, Phase 5 (2026-10-29, `make eval`).** Seven real faults were injected into ShopLite,
@@ -166,6 +177,16 @@ Each ran once, so treat these as a first measurement, not a benchmark. A first a
 after 2 scenarios, misdiagnosed the buggy commit. A 30-minute log window still held the previous
 scenario's errors, so the model blamed that scenario's flag instead. That was fixed and the whole
 evaluation was run again. Every top hypothesis is quoted word for word in the results.
+
+**Phase 6, memory (2026-10-30, `make memory-check`).** The same buggy deploy ran twice:
+1. INC-015 opened. Its diagnosis reached Discord 46 s after the alarm and named the commit.
+   When it resolved, its postmortem (3,354 characters) was written to S3.
+2. Ten minutes later the bug was deployed again as INC-016. Its card said **"Looks like INC-015"**
+   and gave INC-015's cause and fix.
+
+That link comes from NightWatch's incident memory, not from the model: the model's own text
+didn't name INC-015. Postmortems for the 14 earlier incidents were then backfilled into S3 and
+memory.
 
 Earlier runs against the deployed stack, from 2026-10-28:
 

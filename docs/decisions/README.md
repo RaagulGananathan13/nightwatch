@@ -19,5 +19,6 @@ true $0 per month or to close a gap found while reviewing the spec.
 | [0011](0011-evidence-ledger-guard-and-workflow.md) | Evidence ledger, hallucination guard and the investigation workflow | Accepted |
 | [0012](0012-approval-gated-remediation.md) | Approval-gated remediation: runbooks, Discord buttons and verification | Accepted |
 | [0013](0013-evaluating-nightwatch.md) | How NightWatch is evaluated | Accepted |
+| [0014](0014-memory-postmortems-chatops.md) | Incident memory, postmortems and ChatOps | Accepted |
 
 New records copy the layout of an existing one: Context, Decision, Consequences.

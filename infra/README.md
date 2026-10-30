@@ -109,7 +109,14 @@ Run the `make` commands from Git Bash in the repository root.
    aws ssm put-parameter --profile nightwatch --name /nightwatch/kill_switch --value true --overwrite
    ```
 
-8. **Ship code.** Any merge to `main` that touches `shoplite/` now deploys a new version. You can also
+8. **Turn on slash commands and memory (Phase 6).** After `make apply`:
+
+   ```bash
+   make discord-commands DISCORD_GUILD_ID=<your server id>   # registers /nw in your server
+   make backfill-memory                                      # postmortems for older incidents
+   ```
+
+9. **Ship code.** Any merge to `main` that touches `shoplite/` now deploys a new version. You can also
    start one by hand with **Actions → Deploy ShopLite → Run workflow**.
 
 ## Tearing down
