@@ -113,7 +113,7 @@ def summarize(runs: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def render(runs: list[dict[str, Any]]) -> str:
+def render(runs: list[dict[str, Any]], notes: list[str] | None = None) -> str:
     s = summarize(runs)
     n = s["scenarios"]
     if not n:
@@ -171,6 +171,8 @@ def render(runs: list[dict[str, Any]]) -> str:
             f"({round(float(r.get('confidence', 0)) * 100)}% confidence)",
             "",
         ]
+    if notes:
+        lines += ["## Notes", ""] + [f"- {note}" for note in notes] + [""]
     lines += [
         "## How it is scored",
         "",

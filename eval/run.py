@@ -67,10 +67,21 @@ def load(folder: Path) -> dict[str, Any]:
 
 
 def save(folder: Path, runs: dict[str, Any]) -> None:
+    """Write both files. Notes (written by hand into results.json) are kept and printed."""
+    notes = load_notes(folder)
+    body = {"runs": runs, "notes": notes} if notes else {"runs": runs}
     (folder / "results.json").write_text(
-        json.dumps({"runs": runs}, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n"
+        json.dumps(body, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n"
     )
-    (folder / "results.md").write_text(render(ordered(runs)), encoding="utf-8", newline="\n")
+    (folder / "results.md").write_text(render(ordered(runs), notes), encoding="utf-8", newline="\n")
+
+
+def load_notes(folder: Path) -> list[str]:
+    path = folder / "results.json"
+    if not path.exists():
+        return []
+    notes: list[str] = json.loads(path.read_text(encoding="utf-8")).get("notes", [])
+    return notes
 
 
 def ordered(runs: dict[str, Any]) -> list[dict[str, Any]]:

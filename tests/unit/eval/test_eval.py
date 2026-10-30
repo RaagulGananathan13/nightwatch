@@ -123,6 +123,9 @@ def test_report_shows_the_headline_numbers_and_how_they_are_scored() -> None:
     assert "| Evidence validity (hypotheses the guard verified) | **4/5 (80%)** |" in markdown
     assert "| Lambda timeout | **none** |" in markdown
     assert "`hang`" in markdown
+    assert "## Notes\n\n- The ground truth was corrected." in render(
+        runs, ["The ground truth was corrected."]
+    )
 
 
 class EvalLab(FakeLab):
