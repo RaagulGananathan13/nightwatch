@@ -105,8 +105,6 @@ def test_digest_names_the_alarms_behind_most_noise() -> None:
 def test_weekly_run_stores_the_report_for_the_dashboard(
     store: IncidentStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from nightwatch.api.handler import latest_alarm_report
-
     monkeypatch.setenv("TABLE_NAME", TABLE)
     monkeypatch.setattr(coach, "utcnow", lambda: T0 + timedelta(hours=1))
     monkeypatch.setattr(coach, "webhook_from_ssm", lambda param, secret: None)
@@ -123,7 +121,7 @@ def test_weekly_run_stores_the_report_for_the_dashboard(
     store.assign_number(store.open_incident(make_alert("shoplite-5xx-rate"), None, T0))
     out = coach.handler({}, None)
     assert out == {"alarms": 1, "noisy": [], "incidents": 1}  # still open: not noise yet
-    report = latest_alarm_report(store)
+    report = store.latest_report("alarms")
     assert report is not None
     assert report["alarms"][0]["alarm"] == "shoplite-5xx-rate"
     assert report["period_days"] == 7

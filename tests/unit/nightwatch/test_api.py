@@ -2,6 +2,7 @@
 
 import json
 import time
+from datetime import timedelta
 from typing import Any
 
 import jwt
@@ -135,3 +136,12 @@ def test_runbooks_and_settings(env: IncidentStore) -> None:
     status, settings = call("/api/settings")
     assert settings["kill_switch"] == "false"
     assert "shoplite" in settings["services"]
+
+
+def test_the_latest_scheduled_reports(env: IncidentStore) -> None:
+    assert call("/api/forecasts") == (200, {"report": None})  # before the first morning
+    env.save_report("forecast", {"at": "first"}, T0, keep_days=90)
+    env.save_report("forecast", {"at": "second"}, T0 + timedelta(days=1), keep_days=90)
+    env.save_report("alarms", {"noisy": 1}, T0, keep_days=180)
+    assert call("/api/forecasts")[1] == {"report": {"at": "second"}}
+    assert call("/api/alarms")[1] == {"report": {"noisy": 1}}

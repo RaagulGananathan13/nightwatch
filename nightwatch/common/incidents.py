@@ -356,6 +356,33 @@ class IncidentStore:
             raise
         return True
 
+    # ---------------------------------------------------------------------- reports
+
+    def save_report(self, kind: str, report: dict[str, Any], now: datetime, keep_days: int) -> None:
+        """Store a scheduled report ("alarms" from the coach, "forecast") for the dashboard."""
+        self.client.put_item(
+            TableName=self.table,
+            Item={
+                **self._key(f"REPORT#{kind}#{to_iso(now)}"),
+                "type": _s(f"{kind}_report"),
+                "json": _s(json.dumps(report)),
+                "expires_at": _n(int((now + timedelta(days=keep_days)).timestamp())),
+            },
+        )
+
+    def latest_report(self, kind: str) -> dict[str, Any] | None:
+        """The newest report of a kind, or None before the first one is written."""
+        reply = self.client.query(
+            TableName=self.table,
+            KeyConditionExpression="PK = :pk AND begins_with(SK, :report)",
+            ExpressionAttributeValues={":pk": _s(self._pk), ":report": _s(f"REPORT#{kind}#")},
+            ScanIndexForward=False,
+            Limit=1,
+        )
+        items = reply.get("Items", [])
+        report: dict[str, Any] | None = json.loads(items[0]["json"]["S"]) if items else None
+        return report
+
     # ---------------------------------------------------------------------- helpers
 
     @property

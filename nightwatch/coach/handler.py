@@ -9,7 +9,6 @@ EventBridge Scheduler runs it every Monday:
 
 from __future__ import annotations
 
-import json
 from datetime import timedelta
 from functools import cache
 from typing import Any
@@ -60,16 +59,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         "until": to_iso(now),
         "incidents": len(incidents),
     }
-    store.client.put_item(
-        TableName=store.table,
-        Item={
-            "PK": {"S": f"TENANT#{store.tenant}"},
-            "SK": {"S": f"REPORT#alarms#{to_iso(now)}"},
-            "type": {"S": "alarm_report"},
-            "json": {"S": json.dumps(report)},
-            "expires_at": {"N": str(int((now + timedelta(days=180)).timestamp()))},
-        },
-    )
+    store.save_report("alarms", report, now, keep_days=180)
     AuditLog(settings.table_name, settings.tenant_id, "nightwatch-coach").record(
         "alarm_report_written", None, alarms=len(stats), noisy=report["noisy"]
     )
