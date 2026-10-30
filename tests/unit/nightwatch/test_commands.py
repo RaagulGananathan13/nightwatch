@@ -152,15 +152,16 @@ class AuditLogStub:
         return None
 
 
-def test_interaction_reply_edits_the_original_message_only() -> None:
+def test_interaction_reply_edits_the_original_message_and_keeps_its_buttons() -> None:
     opener = Opener(FakeResponse({}))
-    InteractionReply("123", TOKEN, opener=opener).edit({"content": "hi", "components": [1]})
+    row = {"type": 1, "components": [{"type": 2, "style": 3, "label": "Go", "custom_id": "x"}]}
+    InteractionReply("123", TOKEN, opener=opener).edit({"content": "hi", "components": [row]})
     request = opener.requests[0]
     assert (
         request.full_url == f"https://discord.com/api/v10/webhooks/123/{TOKEN}/messages/@original"
     )
     assert request.get_method() == "PATCH"
-    assert "components" not in json.loads(request.data)
+    assert json.loads(request.data)["components"] == [row]  # the reply is the app's own
     with pytest.raises(ValueError, match="interaction token"):
         InteractionReply("123", "../../x")
 

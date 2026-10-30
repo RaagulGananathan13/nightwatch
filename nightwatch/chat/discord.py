@@ -3,6 +3,8 @@
 - ``DiscordWebhook`` posts incident status and diagnoses (Phase 2).
 - ``DiscordBot`` posts approval requests (Phase 4). Only messages an application sends can
   carry buttons whose clicks reach NightWatch, so these go through the bot's API instead.
+- ``InteractionReply`` edits the reply to a slash command. That reply belongs to the
+  application too, so it may carry buttons (the drafted updates' Publish / Discard, F13).
 
 Plain urllib keeps the Lambda package small (ADR 0005). Two Discord details matter:
 - Discord rejects Python's default user agent, so we send our own.
@@ -119,7 +121,8 @@ def webhook_from_ssm(param: str, secret: Callable[[str], str]) -> DiscordWebhook
 
 class InteractionReply(_Client):
     """Edits the reply to a slash command. The URL carries the interaction's token, a secret
-    that Discord accepts for 15 minutes, so no bot token is needed."""
+    that Discord accepts for 15 minutes, so no bot token is needed. The reply is the
+    application's own message, so its buttons work."""
 
     def __init__(self, application_id: str, token: str, **options: Any) -> None:
         super().__init__(**options)
@@ -129,7 +132,7 @@ class InteractionReply(_Client):
         self._url = f"{API}/webhooks/{application_id}/{token}/messages/@original"
 
     def edit(self, message: dict[str, Any]) -> None:
-        self._call("PATCH", self._url, _without_buttons(message))
+        self._call("PATCH", self._url, message)
 
 
 def bot_from_ssm(param: str, channel_id: str, secret: Callable[[str], str]) -> DiscordBot | None:
