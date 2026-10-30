@@ -31,6 +31,7 @@ GIT_SHA := $(shell git rev-parse --short=12 HEAD 2>/dev/null || echo dev)
 .PHONY: chaos chaos-list chaos-fix chaos-fix-flag discord-endpoint eval
 .PHONY: memory-check discord-commands backfill-memory
 .PHONY: dashboard dashboard-check dashboard-dev dashboard-deploy
+.PHONY: coach
 
 help: ## Show this list
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-15s %s\n", $$1, $$2}'
@@ -123,6 +124,9 @@ chaos-fix: ## Deploy a buggy commit and keep it live until you approve NightWatc
 
 chaos-fix-flag: ## Turn on the error flag and keep it on until you approve NightWatch's fix
 	$(PY) -m chaos.error_flag --let-nightwatch-fix
+
+coach: ## Write the alert-quality report now (it also runs every Monday)
+	$(PY) -c "import boto3,json; r=boto3.Session(profile_name='$(AWS_PROFILE)',region_name='us-east-2').client('lambda').invoke(FunctionName='nightwatch-coach',Payload=b'{}'); print(r['Payload'].read().decode())"
 
 dashboard: ## Build the web dashboard into dashboard/dist
 	cd dashboard && npm ci --no-audit --no-fund && npm run build
