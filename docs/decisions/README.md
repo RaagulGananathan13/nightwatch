@@ -23,5 +23,6 @@ true $0 per month or to close a gap found while reviewing the spec.
 | [0015](0015-dashboard.md) | The web dashboard: CloudFront, private S3, Cognito and a read-only API | Accepted |
 | [0016](0016-fix-as-pull-request.md) | Fix-as-pull-request: Terraform changes for settings that are too small | Accepted |
 | [0017](0017-alert-quality-coach.md) | The alert-quality coach: a noise score anyone can check | Accepted |
+| [0018](0018-predictive-warnings.md) | Predictive warnings: straight-line trends against known limits | Accepted |
 
 New records copy the layout of an existing one: Context, Decision, Consequences.
