@@ -21,6 +21,8 @@ services:
     approvers: ["1048648983599403058"]
     # Availability target: at most 0.5% of requests may fail (its error budget, spec F12).
     slo: 99.5
+    # What customers call it: the public status page uses this name (spec F13).
+    public_name: ShopLite
     # Terraform settings NightWatch may propose raising in a pull request (spec F10), and the
     # most it may ask for. read_capacity stays well inside the 25-unit free tier.
     terraform:

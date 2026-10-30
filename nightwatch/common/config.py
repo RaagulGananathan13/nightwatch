@@ -47,6 +47,10 @@ class Settings:
     # Phase 8 (F10): fix pull requests. The token is fine-grained, for this repository only.
     github_token_param: str = "/nightwatch/github/token"  # noqa: S105  # nosec B105 - a name
     dashboard_url_param: str = "/nightwatch/dashboard/url"
+    # Phase 8 (F13): /nw update drafts in its own Lambda; the public status page is a file in
+    # the dashboard's bucket.
+    updates_function: str = ""  # empty: /nw update is off
+    status_bucket: str = ""  # empty: nothing can be published
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> Settings:
@@ -78,4 +82,6 @@ class Settings:
             ),
             github_token_param=env.get("GITHUB_TOKEN_PARAM", "/nightwatch/github/token"),
             dashboard_url_param=env.get("DASHBOARD_URL_PARAM", "/nightwatch/dashboard/url"),
+            updates_function=env.get("UPDATES_FUNCTION", ""),
+            status_bucket=env.get("STATUS_BUCKET", ""),
         )

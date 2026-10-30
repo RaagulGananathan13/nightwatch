@@ -258,6 +258,53 @@ def _action_status(action: Action) -> tuple[str, int]:
     return table[action.status]
 
 
+def drafts_message(draft: dict[str, Any], decided: str = "") -> dict[str, Any]:
+    """Drafted stakeholder updates (spec F13), with Publish / Discard until someone decides.
+
+    The custom_id is ``nw:<publish|discard>:<draft id>``. The click handler checks the clicker
+    against the service's approvers before anything reaches the public status page.
+    """
+    how = (
+        f"drafted by {draft.get('model') or 'an LLM'}"
+        if draft.get("method") == "llm"
+        else "written by fixed rules (no LLM)"
+    )
+    footer = " · ".join([str(draft["label"]), how, *[str(n) for n in draft.get("notes") or []]])
+    embeds = [
+        {
+            "title": "📣 Customer update, for the public status page",
+            "description": _limit(str(draft["customer"]), 2000),
+            "color": _BLUE,
+        },
+        {
+            "title": "🧭 Leadership summary, internal",
+            "description": _limit(str(draft["leadership"]), 2000),
+            "color": _GREY,
+            "footer": {"text": _limit(footer, 2000)},
+        },
+    ]
+    asked = _clean(str(draft.get("requested_by") or "someone"))
+    message: dict[str, Any] = {
+        "content": f"Drafts for **{draft['label']}**, asked for by {asked}.",
+        "embeds": embeds,
+        "components": [],
+        "allowed_mentions": {"parse": []},
+    }
+    if decided:
+        message["content"] += "\n" + _clean(decided)
+    else:
+        message["components"] = [
+            {
+                "type": 1,
+                "components": [
+                    _button("Publish to status page", 3, f"nw:publish:{draft['id']}"),
+                    _button("Discard", 2, f"nw:discard:{draft['id']}"),
+                ],
+            }
+        ]
+    return message
+
+
 def _button(label: str, style: int, custom_id: str) -> dict[str, Any]:
     return {"type": 2, "style": style, "label": label, "custom_id": custom_id}
 

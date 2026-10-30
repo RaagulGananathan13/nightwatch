@@ -38,6 +38,8 @@ if TYPE_CHECKING:
     from mypy_boto3_dynamodb.type_defs import TransactWriteItemTypeDef
 
 ALERT_RETENTION = timedelta(days=90)
+DRAFT_RETENTION = timedelta(days=30)  # drafted stakeholder updates (spec F13)
+UPDATE_RETENTION = timedelta(days=365)  # published ones, shown on the status page
 
 _serializer = TypeSerializer()
 _deserializer = TypeDeserializer()
@@ -382,6 +384,66 @@ class IncidentStore:
         items = reply.get("Items", [])
         report: dict[str, Any] | None = json.loads(items[0]["json"]["S"]) if items else None
         return report
+
+    # ---------------------------------------------------------------------- status updates
+
+    def save_draft(self, draft: dict[str, Any], now: datetime) -> None:
+        """Keep drafted stakeholder updates until an approver publishes or discards them."""
+        expires = int((now + DRAFT_RETENTION).timestamp())
+        self.client.put_item(
+            TableName=self.table,
+            Item={
+                **self._key(f"DRAFT#{draft['id']}"),
+                **_item({**draft, "status": "draft", "expires_at": expires}),
+            },
+        )
+
+    def get_draft(self, draft_id: str) -> dict[str, Any] | None:
+        return self._get(f"DRAFT#{draft_id}")
+
+    def decide_draft(self, draft_id: str, status: str, user_name: str, now: datetime) -> bool:
+        """Publish or discard drafts, once. False if someone already decided them."""
+        try:
+            self.client.update_item(
+                TableName=self.table,
+                Key=self._key(f"DRAFT#{draft_id}"),
+                UpdateExpression="SET #st = :status, decided_by_name = :n, decided_at = :t",
+                ConditionExpression="#st = :draft",
+                ExpressionAttributeNames={"#st": "status"},
+                ExpressionAttributeValues={
+                    ":status": _s(status),
+                    ":n": _s(user_name),
+                    ":t": _s(to_iso(now)),
+                    ":draft": _s("draft"),
+                },
+            )
+        except ClientError as exc:
+            if _code(exc) == "ConditionalCheckFailedException":
+                return False
+            raise
+        return True
+
+    def add_status_update(self, update: dict[str, Any], now: datetime) -> None:
+        """A published customer update, for the public status page."""
+        expires = int((now + UPDATE_RETENTION).timestamp())
+        self.client.put_item(
+            TableName=self.table,
+            Item={
+                **self._key(f"UPDATE#{to_iso(now)}#{update['draft_id']}"),
+                **_item({**update, "published_at": to_iso(now), "expires_at": expires}),
+            },
+        )
+
+    def status_updates(self, limit: int) -> list[dict[str, Any]]:
+        """Published customer updates, newest first."""
+        reply = self.client.query(
+            TableName=self.table,
+            KeyConditionExpression="PK = :pk AND begins_with(SK, :update)",
+            ExpressionAttributeValues={":pk": _s(self._pk), ":update": _s("UPDATE#")},
+            ScanIndexForward=False,
+            Limit=limit,
+        )
+        return [_plain(item) for item in reply.get("Items", [])]
 
     # ---------------------------------------------------------------------- helpers
 
