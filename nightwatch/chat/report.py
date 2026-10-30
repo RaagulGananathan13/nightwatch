@@ -30,6 +30,7 @@ from nightwatch.common.log import emit
 from nightwatch.common.models import Incident
 from nightwatch.common.secrets import SecretCache
 from nightwatch.common.timeutil import utcnow
+from nightwatch.postmortem import start as start_postmortem
 from nightwatch.remediation.actions import ALL, FINAL, Action, ActionStore, TransitionError
 from nightwatch.remediation.calls import kill_switch_on
 
@@ -69,6 +70,9 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         action = _expire(chat, action, audit)
     elif mode == "outcome":
         action = _outcome(chat, action, state.get("error"), audit)
+        current = store.get_incident(incident_id)
+        if current and current.status == "resolved":  # rewrite it with how the fix ended
+            start_postmortem(settings.postmortem_function, incident_id)
     else:
         raise ValueError(f"unknown mode {mode}")
     return {"incident_id": incident_id, "action_id": action_id, "status": action.status}

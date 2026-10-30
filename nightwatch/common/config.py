@@ -36,6 +36,10 @@ class Settings:
     approval_timeout_minutes: int = 30
     # Spec F14: "true" (or anything but "false", or unreadable) turns every fix off.
     kill_switch_param: str = "/nightwatch/kill_switch"
+    # Phase 6: postmortems (S3) and the Lambdas other steps start.
+    postmortem_bucket: str = ""
+    postmortem_function: str = ""  # empty: no postmortems
+    ask_function: str = ""  # empty: /nw ask is off
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> Settings:
@@ -57,4 +61,7 @@ class Settings:
             discord_public_key=env.get("DISCORD_PUBLIC_KEY", ""),
             approval_timeout_minutes=int(env.get("APPROVAL_TIMEOUT_MINUTES", "30")),
             kill_switch_param=env.get("KILL_SWITCH_PARAM", "/nightwatch/kill_switch"),
+            postmortem_bucket=env.get("POSTMORTEM_BUCKET", ""),
+            postmortem_function=env.get("POSTMORTEM_FUNCTION", ""),
+            ask_function=env.get("ASK_FUNCTION", ""),
         )

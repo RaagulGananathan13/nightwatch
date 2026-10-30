@@ -26,6 +26,7 @@ from nightwatch.common.timeutil import utcnow
 from nightwatch.ingest.correlate import correlate
 from nightwatch.ingest.normalize import from_cloudwatch_event
 from nightwatch.ingest.notify import notify
+from nightwatch.postmortem import start as start_postmortem
 
 if TYPE_CHECKING:
     from mypy_boto3_cloudwatch import CloudWatchClient
@@ -82,6 +83,13 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     notify(outcome, store, audit, lambda: _webhook(settings), now)
     if outcome.kind == "opened" and outcome.incident is not None:
         start_investigation(settings, outcome.incident, audit)
+    resolved = outcome.kind == "resolved" and outcome.incident is not None
+    if (
+        resolved
+        and outcome.incident
+        and start_postmortem(settings.postmortem_function, outcome.incident.id)
+    ):
+        audit.record("postmortem_queued", outcome.incident.id)
     return {"outcome": outcome.kind, "incident": label}
 
 
