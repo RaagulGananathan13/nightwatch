@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import boto3
+from botocore.exceptions import ClientError
 
 from nightwatch.common.audit import AuditLog
 from nightwatch.common.incidents import IncidentStore
@@ -206,6 +207,22 @@ class Lab:
         ids = {i.id for i in listed if i.service == service and i.opened_at >= since}
         found = [store.get_incident(incident_id) for incident_id in ids]
         return sorted((i for i in found if i), key=lambda incident: incident.opened_at)
+
+    def incident(self, incident_id: str) -> Incident | None:
+        store = IncidentStore(self.table, self.tenant, self.session.client("dynamodb"))
+        return store.get_incident(incident_id)
+
+    def postmortem(self, key: str) -> str | None:
+        """A postmortem's markdown from S3, or None if it isn't there."""
+        account = self.session.client("sts").get_caller_identity()["Account"]
+        try:
+            body = self.session.client("s3").get_object(
+                Bucket=f"nightwatch-{account}-postmortems", Key=key
+            )["Body"]
+        except ClientError:
+            return None
+        text: str = body.read().decode("utf-8")
+        return text
 
     def incident_open(self, service: str) -> bool:
         store = IncidentStore(self.table, self.tenant, self.session.client("dynamodb"))
