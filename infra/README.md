@@ -116,7 +116,23 @@ Run the `make` commands from Git Bash in the repository root.
    make backfill-memory                                      # postmortems for older incidents
    ```
 
-9. **Ship code.** Any merge to `main` that touches `shoplite/` now deploys a new version. You can also
+9. **Open the dashboard (Phase 7).** The deployer needs CloudFront and Cognito rights, so first
+   re-run the setup script in CloudShell: `cd nightwatch && git pull` then
+   `bash infra/bootstrap/create-deployer.sh`. Run it again whenever
+   `nightwatch-boundary-policy.json` changes. Then:
+
+   ```bash
+   make apply                    # Cognito emails a temporary password to budget_alert_email
+   make dashboard dashboard-deploy
+   terraform -chdir=infra/envs/dev output -raw dashboard_url
+   gh variable set DASHBOARD_BUCKET          --body "$(terraform -chdir=infra/envs/dev output -raw dashboard_bucket)"
+   gh variable set DASHBOARD_DISTRIBUTION_ID --body "$(terraform -chdir=infra/envs/dev output -raw dashboard_distribution_id)"
+   ```
+
+   After that, CI redeploys the dashboard on every merge that changes it. To let more people
+   sign in, list their emails in `dashboard_users` in `terraform.tfvars`.
+
+10. **Ship code.** Any merge to `main` that touches `shoplite/` now deploys a new version. You can also
    start one by hand with **Actions → Deploy ShopLite → Run workflow**.
 
 ## Tearing down

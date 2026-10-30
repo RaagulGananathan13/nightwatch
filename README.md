@@ -12,7 +12,7 @@ always-free services and free LLM tiers.
 [![CI](https://github.com/RaagulGananathan13/nightwatch/actions/workflows/ci.yml/badge.svg)](https://github.com/RaagulGananathan13/nightwatch/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-> **Status: Phase 6 of 9 done.** NightWatch groups alarms into one incident per service, then an
+> **Status: Phase 7 of 9 done.** NightWatch groups alarms into one incident per service, then an
 > AI agent gathers evidence and posts a diagnosis that cites it. When the evidence matches a
 > reviewed runbook, it proposes the fix, and the fix runs only after a human clicks **Approve** in
 > Discord. Then it is verified. In an evaluation on 7 real injected faults, NightWatch named the
@@ -20,7 +20,8 @@ always-free services and free LLM tiers.
 > every cited fact checked out against the evidence, and it proposed the right fix every time,
 > all at $0 ([results](eval/results.md)). It also remembers past incidents, so a repeat
 > failure is labelled with the earlier one. Every resolved incident gets a postmortem, and
-> Discord's `/nw` commands can ask it questions. Next is the web dashboard (Phase 7). See the
+> Discord's `/nw` commands can ask it questions. A web dashboard behind a login shows every
+> incident with the evidence behind its diagnosis. Next are the differentiators (Phase 8). See the
 > [roadmap](#roadmap) and the [infrastructure guide](infra/README.md).
 
 ## How it works
@@ -73,7 +74,7 @@ Phase 9 is tagged `v1.0`.
 | 4 | Runbooks, approval buttons, remediation, audit log, kill switch | Done |
 | 5 | Chaos lab and evaluation harness (accuracy, time to diagnosis) | Done |
 | 6 | Incident memory, auto-revert, postmortems, ChatOps commands | Done |
-| 7 | Web dashboard (React and Cognito) | Planned |
+| 7 | Web dashboard (React and Cognito) | Done |
 | 8 | Fix-as-PR, alert-noise coach, predictions, status page, MCP server, cost guardian | Planned |
 | 9 | Multi-account connect, docs, security review, launch | Planned |
 
@@ -147,6 +148,13 @@ NightWatch remembers every incident and writes its postmortem (Phase 6):
 - In Discord, `/nw status` lists open incidents and `/nw ack INC-12` takes one.
 - `/nw ask why is checkout slow?` runs a read-only investigation and posts the answer with its
   evidence ([ADR 0014](docs/decisions/0014-memory-postmortems-chatops.md)).
+
+The [web dashboard](dashboard/README.md) (Phase 7) shows the same incidents in a browser. Each
+diagnosis links every `[E#]` to the evidence viewer: the exact query, its raw result, and
+whether the guard verified it. Each incident also shows its timeline, fixes, approvals and
+postmortem, and the evaluation results are charted. It is served by CloudFront from a private
+bucket, behind a Cognito sign-in with no self sign-up. Its API is read-only and only CloudFront
+can call it ([ADR 0015](docs/decisions/0015-dashboard.md)).
 
 ### Measured so far
 
