@@ -130,6 +130,37 @@ def dynamodb_throttle(lab: ScenarioLab) -> Scenario:
     )
 
 
+def traffic_surge(lab: ScenarioLab) -> Scenario:
+    """Nothing breaks and nothing changes: traffic simply outgrows the provisioned capacity.
+    The right answer is a reviewed Terraform change (spec F10), not a runbook."""
+
+    def inject(out: Callable[[str], None]) -> Callable[[], None]:
+        out("Nothing is changed: the canary just sends more reads than 5 read units can serve.")
+        return lambda: None
+
+    return Scenario(
+        name="traffic surge",
+        ground_truth=(
+            "Steady read traffic needs more than the 5 read units Terraform provisions for the "
+            "shoplite table. Nothing was changed, so the lasting fix is a higher read_capacity."
+        ),
+        inject=inject,
+        expect=[
+            "capacity+traffic",
+            "capacity+load",
+            "capacity+demand",
+            "capacity+exceed",
+            "capacity+insufficient",
+            "capacity+too low",
+        ],
+        slug="traffic-surge",
+        fix="pr:read_capacity",
+        traffic=lambda: lab.load(seconds=20, parallel=4),
+        pause=1.0,
+        minutes=5.0,
+    )
+
+
 def broken_env_var(lab: ScenarioLab) -> Scenario:
     deployed: dict[str, Any] = {}
 
@@ -183,4 +214,5 @@ SCENARIOS: dict[str, Callable[[ScenarioLab], Scenario]] = {
     "memory-exhaustion": memory_exhaustion,
     "dynamodb-throttle": dynamodb_throttle,
     "broken-env-var": broken_env_var,
+    "traffic-surge": traffic_surge,
 }

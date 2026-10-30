@@ -75,7 +75,7 @@ def score(lab: EvalLab, scenario: Scenario, outcome: Outcome, commit: str) -> di
             "prompt_version": result.get("prompt_version"),
             "llm_calls": int(result.get("llm_calls") or 0),
             "tokens": int(result.get("tokens") or 0),
-            "fix_proposed": actions[-1].runbook_id if actions else None,
+            "fix_proposed": _fix(actions, result),
         }
     )
     return run
@@ -193,6 +193,14 @@ def render(runs: list[dict[str, Any]], notes: list[str] | None = None) -> str:
         "",
     ]
     return "\n".join(lines)
+
+
+def _fix(actions: list[Action], result: dict[str, Any]) -> str | None:
+    """The runbook NightWatch proposed, or "pr:<setting>" for a Terraform pull request."""
+    if actions:
+        return actions[-1].runbook_id
+    config = result.get("config_fix") or {}
+    return f"pr:{config['knob']}" if config.get("knob") else None
 
 
 def _as_written(hypothesis: dict[str, Any]) -> bool:

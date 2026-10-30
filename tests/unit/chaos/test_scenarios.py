@@ -15,6 +15,7 @@ GOOD = {
     "memory-exhaustion": "The memory_hog_mb flag exhausts the function's memory.",
     "dynamodb-throttle": "Read capacity was lowered to 1, so reads are throttled.",
     "broken-env-var": "Version 6 changed TABLE_NAME to a table that does not exist.",
+    "traffic-surge": "Read traffic exceeds the table's provisioned capacity of 5 units.",
 }
 # Right symptom, wrong cause: these must not count.
 SYMPTOM_ONLY = {
@@ -23,6 +24,7 @@ SYMPTOM_ONLY = {
     "memory-exhaustion": "The runtime was killed.",
     "dynamodb-throttle": "DynamoDB reads are throttled.",
     "broken-env-var": "DynamoDB calls fail.",
+    "traffic-surge": "DynamoDB reads are throttled.",
 }
 
 
@@ -53,6 +55,7 @@ def test_each_scenario_passes_on_the_right_cause_and_leaves_shoplite_clean(name:
         "rollback-lambda-alias",
         "reset-feature-flags",
         "raise-dynamodb-capacity",
+        "pr:read_capacity",
     }
 
 
