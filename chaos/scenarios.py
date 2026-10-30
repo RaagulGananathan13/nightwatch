@@ -27,7 +27,7 @@ class ScenarioLab(bad_deploy.DeployLab, error_flag.FlagLab, Protocol):
     def set_live_version(self, version: str) -> None: ...
     def read_capacity(self) -> int: ...
     def set_read_capacity(self, units: int) -> None: ...
-    def load(self, seconds: float, parallel: int) -> list[int]: ...
+    def load(self, seconds: float, parallel: int, copies: int = 1) -> list[int]: ...
 
 
 def flag_fault(
@@ -155,7 +155,9 @@ def traffic_surge(lab: ScenarioLab) -> Scenario:
         ],
         slug="traffic-surge",
         fix="pr:read_capacity",
-        traffic=lambda: lab.load(seconds=20, parallel=4),
+        # Three canaries read about 22 units a second against the 5 provisioned, so DynamoDB's
+        # burst credit (5 minutes of unused capacity) runs out in about a minute and a half.
+        traffic=lambda: lab.load(seconds=20, parallel=4, copies=3),
         pause=1.0,
         minutes=5.0,
     )

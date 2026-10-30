@@ -8,6 +8,7 @@ import subprocess  # nosec B404 - runs git with fixed arguments
 import sys
 import tempfile
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -76,13 +77,19 @@ class Lab:
         status, _ = signed_request(method, self._url + path, credentials, self.region, body)
         return status
 
-    def load(self, seconds: float, parallel: int) -> list[int]:
-        """Heavy traffic sent from inside AWS by the canary, so it doesn't depend on this
-        machine's network. Blocks for ``seconds``; returns every request's HTTP status."""
+    def load(self, seconds: float, parallel: int, copies: int = 1) -> list[int]:
+        """Heavy traffic sent from inside AWS by ``copies`` canaries at once, so it doesn't
+        depend on this machine's network. Blocks for ``seconds``; returns every status."""
+        client = self.session.client("lambda")
         payload = json.dumps({"load_seconds": seconds, "parallel": parallel}).encode()
-        reply = self.session.client("lambda").invoke(FunctionName=CANARY, Payload=payload)
-        statuses = (json.loads(reply["Payload"].read() or b"{}") or {}).get("statuses") or {}
-        return [int(code) for code, count in statuses.items() for _ in range(int(count))]
+
+        def one(_: int) -> list[int]:
+            reply = client.invoke(FunctionName=CANARY, Payload=payload)
+            statuses = (json.loads(reply["Payload"].read() or b"{}") or {}).get("statuses") or {}
+            return [int(code) for code, count in statuses.items() for _ in range(int(count))]
+
+        with ThreadPoolExecutor(copies) as pool:
+            return [status for batch in pool.map(one, range(copies)) for status in batch]
 
     def build_buggy_shoplite(self, subject: str) -> tuple[str, bytes]:
         """Commit the bug in a throwaway git worktree and build it. Returns (sha, zip bytes).

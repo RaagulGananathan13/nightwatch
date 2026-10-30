@@ -90,10 +90,10 @@ class FakeLab:
         self.capacity = units
         self.history.append(f"read={units}")
 
-    def load(self, seconds: float, parallel: int) -> list[int]:
-        self.time.sleep(seconds)  # the canary's run takes this long
-        self.loads += 1
-        return [502 if self.broken() else 200] * 100
+    def load(self, seconds: float, parallel: int, copies: int = 1) -> list[int]:
+        self.time.sleep(seconds)  # the canaries' runs take this long
+        self.loads += copies
+        return [502 if self.broken() else 200] * 100 * copies
 
     def broken(self) -> bool:
         return bool(self.flags) or self.live in ("5", "6") or self.capacity == 1
