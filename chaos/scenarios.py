@@ -155,13 +155,15 @@ def broken_env_var(lab: ScenarioLab) -> Scenario:
         name="broken environment variable",
         ground_truth=(
             "A new version changed only the TABLE_NAME environment variable, to a table that "
-            "doesn't exist, so every DynamoDB call fails with ResourceNotFoundException."
+            "doesn't exist and that ShopLite's role isn't allowed to use, so every DynamoDB call "
+            "fails with AccessDeniedException (IAM refuses the call before DynamoDB looks for "
+            "the table)."
         ),
         inject=inject,
         expect=[
             "TABLE_NAME",
             "environment variable",
-            "ResourceNotFound+table",
+            "AccessDenied+table",
             "table+not found",
             "table+does not exist",
             "table+doesn't exist",
