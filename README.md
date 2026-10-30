@@ -75,7 +75,7 @@ Phase 9 is tagged `v1.0`.
 | 5 | Chaos lab and evaluation harness (accuracy, time to diagnosis) | Done |
 | 6 | Incident memory, auto-revert, postmortems, ChatOps commands | Done |
 | 7 | Web dashboard (React and Cognito) | Done |
-| 8 | Fix-as-PR, alert-noise coach, predictions, status page, MCP server, cost guardian | Planned |
+| 8 | Fix-as-PR, alert-noise coach, predictions, status page, MCP server, cost guardian | In progress: fix-as-PR done |
 | 9 | Multi-account connect, docs, security review, launch | Planned |
 
 ## Cost
@@ -195,6 +195,21 @@ evaluation was run again. Every top hypothesis is quoted word for word in the re
 That link comes from NightWatch's incident memory, not from the model: the model's own text
 didn't name INC-015. Postmortems for the 14 earlier incidents were then backfilled into S3 and
 memory.
+
+**Phase 8, fix-as-pull-request (2026-10-30, `make chaos NAME=traffic-surge`).** Nothing was
+changed. Three canaries simply read more than the 5 units Terraform provisions for ShopLite's
+table:
+1. INC-017 opened. The diagnosis said the 5 provisioned read units are "insufficient for the
+   traffic" (verified, 95%).
+2. No runbook applied, because there was no change to undo.
+3. NightWatch opened a pull request with a one-line change: `read_capacity` 5 → 10 in
+   `infra/modules/shoplite/variables.tf`. The description has the diagnosis, the evidence it
+   cites and a link to the incident in the dashboard.
+4. CI ran the Terraform plan on the pull request: `read_capacity = 5 -> 10`, with the
+   free-tier guard showing "15 of 25" → "20 of 25" read units.
+
+A person reviews, merges and runs `make apply`
+([ADR 0016](docs/decisions/0016-fix-as-pull-request.md)).
 
 Earlier runs against the deployed stack, from 2026-10-28:
 
