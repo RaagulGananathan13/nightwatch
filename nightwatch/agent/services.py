@@ -35,6 +35,7 @@ class ServiceInfo(BaseModel):
     runbooks: list[str] = Field(default_factory=list)  # fixes NightWatch may propose
     approvers: list[str] = Field(default_factory=list)  # Discord user ids who may approve them
     terraform: dict[str, Knob] = Field(default_factory=dict)  # settings a fix PR may raise
+    slo: float | None = Field(default=None, gt=0, lt=100)  # availability target, percent (F12)
 
     @property
     def resources(self) -> set[str]:
