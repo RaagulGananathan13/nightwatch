@@ -1,7 +1,7 @@
 # 0016. Fix-as-pull-request: Terraform changes for settings that are too small
 
 - Status: accepted
-- Date: 2026-10-31
+- Date: 2026-10-30
 - Spec sections: F10 (Phase 8)
 
 ## Context

@@ -1,7 +1,7 @@
 # 0017. The alert-quality coach: a noise score anyone can check
 
 - Status: accepted
-- Date: 2026-10-31
+- Date: 2026-10-30
 - Spec sections: F11, F18 (Phase 8)
 
 ## Context
