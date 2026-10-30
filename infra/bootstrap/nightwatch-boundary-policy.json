@@ -146,6 +146,57 @@
       "Resource": "arn:aws:budgets::__ACCOUNT_ID__:budget/nightwatch-*"
     },
     {
+      "Sid": "DashboardCdnCreate",
+      "Effect": "Allow",
+      "Action": [
+        "cloudfront:CreateDistribution",
+        "cloudfront:CreateOriginAccessControl",
+        "cloudfront:TagResource"
+      ],
+      "Resource": "*",
+      "Condition": { "StringEquals": { "aws:RequestedRegion": "us-east-1" } }
+    },
+    {
+      "Sid": "DashboardCdnRead",
+      "Effect": "Allow",
+      "Action": ["cloudfront:Get*", "cloudfront:List*"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DashboardCdnManage",
+      "Effect": "Allow",
+      "Action": [
+        "cloudfront:UpdateDistribution",
+        "cloudfront:DeleteDistribution",
+        "cloudfront:CreateInvalidation",
+        "cloudfront:TagResource",
+        "cloudfront:UntagResource",
+        "cloudfront:UpdateOriginAccessControl",
+        "cloudfront:DeleteOriginAccessControl"
+      ],
+      "Resource": [
+        "arn:aws:cloudfront::__ACCOUNT_ID__:distribution/*",
+        "arn:aws:cloudfront::__ACCOUNT_ID__:origin-access-control/*"
+      ]
+    },
+    {
+      "Sid": "DashboardLogin",
+      "Effect": "Allow",
+      "Action": "cognito-idp:*",
+      "Resource": "arn:aws:cognito-idp:__REGION__:__ACCOUNT_ID__:userpool/*"
+    },
+    {
+      "Sid": "DashboardLoginCreate",
+      "Effect": "Allow",
+      "Action": [
+        "cognito-idp:CreateUserPool",
+        "cognito-idp:DescribeUserPoolDomain",
+        "cognito-idp:ListUserPools"
+      ],
+      "Resource": "*",
+      "Condition": { "StringEquals": { "aws:RequestedRegion": "__REGION__" } }
+    },
+    {
       "Sid": "SecureStringParameters",
       "Effect": "Allow",
       "Action": ["kms:Decrypt", "kms:Encrypt", "kms:GenerateDataKey", "kms:DescribeKey"],

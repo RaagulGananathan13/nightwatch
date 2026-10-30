@@ -77,8 +77,17 @@ def test_account_wide_statements_are_pinned_to_the_region_or_read_only() -> None
     for statement in _allows():
         if statement["Resource"] != "*":
             continue
+        actions = _as_list(statement["Action"])
         condition = json.dumps(statement.get("Condition", {}))
-        read_only = all(
-            re.search(r":(List|Describe|Get)", action) for action in _as_list(statement["Action"])
-        )
-        assert "us-east-2" in condition or read_only, statement["Sid"]
+        read_only = all(re.search(r":(List|Describe|Get)", action) for action in actions)
+        # CloudFront is global: its API only answers in us-east-1.
+        cloudfront = all(action.startswith("cloudfront:") for action in actions)
+        pinned = "us-east-2" in condition or (cloudfront and "us-east-1" in condition)
+        assert pinned or read_only, statement["Sid"]
+
+
+def test_dashboard_changes_only_touch_this_accounts_cdn_and_login() -> None:
+    manage = next(s for s in _allows() if s["Sid"] == "DashboardCdnManage")
+    assert all(":111122223333:" in arn for arn in _as_list(manage["Resource"]))
+    login = next(s for s in _allows() if s["Sid"] == "DashboardLogin")
+    assert login["Resource"] == "arn:aws:cognito-idp:us-east-2:111122223333:userpool/*"
