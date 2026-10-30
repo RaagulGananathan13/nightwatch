@@ -51,3 +51,6 @@ shoplite/_build.json
 
 # Terraform backend settings (bucket name holds the account id)
 backend.hcl
+
+# Copied in at build time from eval/results.json
+dashboard/public/eval-results.json

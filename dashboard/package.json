@@ -1,0 +1,29 @@
+{
+  "name": "nightwatch-dashboard",
+  "private": true,
+  "version": "0.8.0",
+  "description": "NightWatch's web dashboard: incidents, evidence, postmortems and eval results.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "dev": "node scripts/copy-eval.mjs && vite",
+    "build": "node scripts/copy-eval.mjs && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"src/**/*.test.ts\"",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "typescript": "6.0.3",
+    "vite": "8.3.5"
+  }
+}
