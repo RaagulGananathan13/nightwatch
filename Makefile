@@ -31,7 +31,7 @@ GIT_SHA := $(shell git rev-parse --short=12 HEAD 2>/dev/null || echo dev)
 .PHONY: chaos chaos-list chaos-fix chaos-fix-flag discord-endpoint eval
 .PHONY: memory-check discord-commands backfill-memory
 .PHONY: dashboard dashboard-check dashboard-dev dashboard-deploy
-.PHONY: coach forecast
+.PHONY: coach forecast mcp-check
 
 help: ## Show this list
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-15s %s\n", $$1, $$2}'
@@ -130,6 +130,9 @@ coach: ## Write the alert-quality report now (it also runs every Monday)
 
 forecast: ## Make today's forecasts now (they also run every morning)
 	$(PY) -c "import boto3; r=boto3.Session(profile_name='$(AWS_PROFILE)',region_name='us-east-2').client('lambda').invoke(FunctionName='nightwatch-forecast',Payload=b'{}'); print(r['Payload'].read().decode())"
+
+mcp-check: ## Test the MCP server setup: switch to its role and ask whats_going_on
+	$(PY) -m nightwatch.mcp_server --check
 
 dashboard: ## Build the web dashboard into dashboard/dist
 	cd dashboard && npm ci --no-audit --no-fund && npm run build
