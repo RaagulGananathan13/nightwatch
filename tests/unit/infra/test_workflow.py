@@ -13,6 +13,7 @@ VALUES = {
     "report_arn": '"arn:report"',
     "remediate_arn": '"arn:remediate"',
     "verify_arn": '"arn:verify"',
+    "fixpr_arn": '"arn:fixpr"',
 }
 
 

@@ -113,6 +113,12 @@ variable "approval_timeout_minutes" {
   default     = 30
 }
 
+variable "github_token_param" {
+  description = "SSM SecureString with a fine-grained GitHub token for fix pull requests (F10). You create it."
+  type        = string
+  default     = "/nightwatch/github/token"
+}
+
 variable "kill_switch_param" {
   description = "SSM parameter that turns every fix off unless its value is false (spec F14)."
   type        = string

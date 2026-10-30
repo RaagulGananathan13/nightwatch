@@ -18,7 +18,8 @@
       "ResultSelector": {
         "incident_id.$": "$.Payload.incident_id",
         "method.$": "$.Payload.method",
-        "action.$": "$.Payload.action"
+        "action.$": "$.Payload.action",
+        "config_fix.$": "$.Payload.config_fix"
       },
       "TimeoutSeconds": 180,
       "Retry": [
@@ -47,6 +48,24 @@
       "ResultPath": null,
       "TimeoutSeconds": 60,
       "Retry": [{ "ErrorEquals": ["States.ALL"], "IntervalSeconds": 5, "MaxAttempts": 2, "BackoffRate": 2 }],
+      "Next": "IsATerraformSettingTooSmall"
+    },
+    "IsATerraformSettingTooSmall": {
+      "Type": "Choice",
+      "Choices": [{ "Variable": "$.config_fix", "BooleanEquals": true, "Next": "OpenFixPullRequest" }],
+      "Default": "IsThereAFix"
+    },
+    "OpenFixPullRequest": {
+      "Comment": "Spec F10: a reviewed Terraform change, opened as a GitHub pull request. A GitHub problem never stops the rest of the workflow.",
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${fixpr_arn}",
+        "Payload": { "incident_id.$": "$.incident_id" }
+      },
+      "ResultPath": null,
+      "TimeoutSeconds": 60,
+      "Catch": [{ "ErrorEquals": ["States.ALL"], "ResultPath": "$.fix_pr_error", "Next": "IsThereAFix" }],
       "Next": "IsThereAFix"
     },
     "IsThereAFix": {

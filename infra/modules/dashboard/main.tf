@@ -225,6 +225,15 @@ resource "aws_ssm_parameter" "client_id" {
   tags  = var.tags
 }
 
+# Fix pull requests link back to the incident here (spec F10).
+resource "aws_ssm_parameter" "url" {
+  #checkov:skip=CKV2_AWS_34:The dashboard's address isn't secret
+  name  = "/nightwatch/dashboard/url"
+  type  = "String"
+  value = local.site_url
+  tags  = var.tags
+}
+
 # ----------------------------------------------------------------------------- API
 
 resource "aws_cloudwatch_log_group" "api" {

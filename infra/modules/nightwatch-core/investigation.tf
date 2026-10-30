@@ -320,6 +320,7 @@ data "aws_iam_policy_document" "workflow" {
         aws_lambda_function.report.arn,
         aws_lambda_function.remediate.arn,
         aws_lambda_function.verify.arn,
+        aws_lambda_function.fixpr.arn,
       ] : [arn, "${arn}:*"]
     ])
   }
@@ -338,6 +339,7 @@ resource "aws_sfn_state_machine" "incident" {
     report_arn               = aws_lambda_function.report.arn
     remediate_arn            = aws_lambda_function.remediate.arn
     verify_arn               = aws_lambda_function.verify.arn
+    fixpr_arn                = aws_lambda_function.fixpr.arn
     settle_seconds           = var.settle_seconds
     approval_timeout_seconds = var.approval_timeout_minutes * 60
   })
