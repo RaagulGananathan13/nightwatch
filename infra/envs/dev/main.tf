@@ -54,6 +54,9 @@ module "nightwatch_core" {
   # Approval buttons (Phase 4). Neither value is secret; the bot token stays in SSM.
   discord_channel_id = var.discord_channel_id
   discord_public_key = var.discord_public_key
+
+  # Who may run the MCP server (spec F15): the deployer user, from create-deployer.sh.
+  mcp_users = ["arn:aws:iam::${local.account_id}:user/nightwatch/nightwatch-deployer"]
 }
 
 # The web dashboard (Phase 7): CloudFront, S3, Cognito and a read-only API.

@@ -124,3 +124,8 @@ variable "kill_switch_param" {
   type        = string
   default     = "/nightwatch/kill_switch"
 }
+
+variable "mcp_users" {
+  description = "IAM user or role ARNs that may run the MCP server (switch to nightwatch-mcp)"
+  type        = list(string)
+}

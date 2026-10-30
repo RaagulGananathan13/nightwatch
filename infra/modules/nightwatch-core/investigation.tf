@@ -43,6 +43,7 @@ resource "aws_iam_role_policy" "investigate" {
 }
 
 data "aws_iam_policy_document" "investigate" {
+  source_policy_documents = [data.aws_iam_policy_document.read_only_tools.json]
   statement {
     sid = "NightWatchState"
     actions = [
@@ -72,6 +73,22 @@ data "aws_iam_policy_document" "investigate" {
     }
   }
 
+  statement {
+    # The verify, ask and updates Lambdas share this read-only role.
+    sid     = "WriteLogs"
+    actions = ["logs:CreateLogStream", "logs:PutLogEvents"]
+    resources = [
+      "${aws_cloudwatch_log_group.investigate.arn}:*",
+      "${aws_cloudwatch_log_group.verify.arn}:*",
+      "${aws_cloudwatch_log_group.ask.arn}:*",
+      "${aws_cloudwatch_log_group.updates.arn}:*",
+    ]
+  }
+}
+
+# What the investigation tools may read: the watched service's alarms, metrics, logs,
+# functions, tables and parameters. The MCP server's role (mcp.tf) gets exactly this too.
+data "aws_iam_policy_document" "read_only_tools" {
   statement {
     sid       = "ReadAlarms"
     actions   = ["cloudwatch:DescribeAlarms", "cloudwatch:DescribeAlarmHistory"]
@@ -113,18 +130,6 @@ data "aws_iam_policy_document" "investigate" {
     sid       = "ReadWatchedParameters"
     actions   = ["ssm:GetParameter", "ssm:GetParameterHistory"]
     resources = var.watched.parameter_arns
-  }
-
-  statement {
-    # The verify, ask and updates Lambdas share this read-only role.
-    sid     = "WriteLogs"
-    actions = ["logs:CreateLogStream", "logs:PutLogEvents"]
-    resources = [
-      "${aws_cloudwatch_log_group.investigate.arn}:*",
-      "${aws_cloudwatch_log_group.verify.arn}:*",
-      "${aws_cloudwatch_log_group.ask.arn}:*",
-      "${aws_cloudwatch_log_group.updates.arn}:*",
-    ]
   }
 }
 
