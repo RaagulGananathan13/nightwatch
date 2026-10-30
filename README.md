@@ -75,7 +75,7 @@ Phase 9 is tagged `v1.0`.
 | 5 | Chaos lab and evaluation harness (accuracy, time to diagnosis) | Done |
 | 6 | Incident memory, auto-revert, postmortems, ChatOps commands | Done |
 | 7 | Web dashboard (React and Cognito) | Done |
-| 8 | Fix-as-PR, alert-noise coach, predictions, status page, MCP server, cost guardian | In progress: fix-as-PR done |
+| 8 | Fix-as-PR, alert-noise coach, predictions, status page, MCP server, cost guardian | In progress: fix-as-PR and alert coach done |
 | 9 | Multi-account connect, docs, security review, launch | Planned |
 
 ## Cost
@@ -210,6 +210,14 @@ table:
 
 A person reviews, merges and runs `make apply`
 ([ADR 0016](docs/decisions/0016-fix-as-pull-request.md)).
+
+**Phase 8, alert-quality coach (2026-10-30, `make coach`).** The coach scored 4 alarms over
+17 incidents (38 firings). It flagged `shoplite-lambda-errors` and `shoplite-5xx-rate` (noise
+81 and 80): they page on a single bad minute, and most of their pages cleared by themselves.
+It suggested requiring 2 bad minutes out of 3, and said to keep `shoplite-dynamodb-throttles`.
+Those pages were the chaos lab's own experiments, which the lab undid, so "cleared by itself"
+is literally true here. The report is on the dashboard's Alarms page and is posted to Discord
+every Monday ([ADR 0017](docs/decisions/0017-alert-quality-coach.md)).
 
 Earlier runs against the deployed stack, from 2026-10-28:
 
