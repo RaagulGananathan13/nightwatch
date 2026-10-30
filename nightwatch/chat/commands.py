@@ -1,10 +1,11 @@
-"""Slash commands (spec F9): ``/nw status``, ``/nw ack INC-12`` and ``/nw ask <question>``.
+"""Slash commands (spec F9, F13): ``/nw status``, ``/nw ack INC-12``, ``/nw ask <question>``
+and ``/nw update INC-12``.
 
 Discord sends these to the same endpoint as button clicks, after the same signature check.
-``status`` and ``ack`` answer at once. ``ask`` needs an investigation (10 to 60 seconds), so it
-answers "NightWatch is thinking..." straight away, and the ask Lambda edits that reply when it
-is done. Only a service's approvers may ``ack`` its incidents or ``ask`` about it, because
-asking spends the LLM budget.
+``status`` and ``ack`` answer at once. ``ask`` needs an investigation (10 to 60 seconds) and
+``update`` an LLM call, so they answer "NightWatch is thinking..." straight away and start a
+Lambda that edits that reply when it is done. Only a service's approvers may ``ack``, ``ask``
+or ``update`` for it, because those act for the team or spend the LLM budget.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from typing import Any
 from nightwatch.agent.services import load_services, service_info
 from nightwatch.common.audit import AuditLog
 from nightwatch.common.incidents import IncidentStore
+from nightwatch.common.models import Incident
 
 COMMAND = "nw"
 MESSAGE, DEFERRED = 4, 5  # response types; DEFERRED shows "NightWatch is thinking..."
@@ -29,7 +31,7 @@ def command(
     store: IncidentStore,
     audit: AuditLog,
     now: datetime,
-    start_ask: Callable[[dict[str, Any]], bool],
+    start_job: Callable[[str, dict[str, Any]], bool],
 ) -> dict[str, Any]:
     data = interaction.get("data") or {}
     options = data.get("options") or []
@@ -53,7 +55,14 @@ def command(
             "token": str(interaction.get("token", "")),
             "user": user_name,
         }
-        return ask(job, user_id, audit, start_ask)
+        return ask(job, user_id, audit, start_job)
+    if sub.get("name") == "update":
+        job = {
+            "application_id": str(interaction.get("application_id", "")),
+            "token": str(interaction.get("token", "")),
+            "user": user_name,
+        }
+        return update(store, audit, str(args.get("incident", "")), job, user_id, start_job)
     return private("NightWatch doesn't know that command.")
 
 
@@ -85,7 +94,7 @@ def ack(
     if not match:
         return private("Give an incident like `INC-12`.")
     number = int(match.group(1))
-    incident = next((i for i in store.list_incidents("open", limit=50) if i.number == number), None)
+    incident = _find(store, number, ("open",))
     if incident is None:
         return private(f"INC-{number:03d} isn't open.")
     if user_id not in service_info(incident.service).approvers:
@@ -100,7 +109,7 @@ def ask(
     job: dict[str, Any],
     user_id: str,
     audit: AuditLog,
-    start_ask: Callable[[dict[str, Any]], bool],
+    start_job: Callable[[str, dict[str, Any]], bool],
 ) -> dict[str, Any]:
     service = job["service"]
     if service not in load_services():
@@ -109,11 +118,35 @@ def ask(
         return private(f"Only {service}'s approvers can ask about it.")
     if not job["question"].strip():
         return private("Ask a question, e.g. `/nw ask why is checkout slow?`")
-    if not start_ask(job):
+    if not start_job("ask", job):
         return private("Questions are switched off right now.")
     audit.record(
         "question_asked", None, user=job["user"], service=service, question=job["question"]
     )
+    return {"type": DEFERRED}
+
+
+def update(
+    store: IncidentStore,
+    audit: AuditLog,
+    label: str,
+    job: dict[str, Any],
+    user_id: str,
+    start_job: Callable[[str, dict[str, Any]], bool],
+) -> dict[str, Any]:
+    """Draft a customer update and a leadership summary for an open or resolved incident."""
+    match = _LABEL.match(label.strip())
+    if not match:
+        return private("Give an incident like `INC-12`.")
+    number = int(match.group(1))
+    incident = _find(store, number, ("open", "resolved"))
+    if incident is None:
+        return private(f"INC-{number:03d} isn't among the recent incidents.")
+    if user_id not in service_info(incident.service).approvers:
+        return private(f"Only {incident.service}'s approvers can draft its updates.")
+    if not start_job("updates", {**job, "incident_id": incident.id}):
+        return private("Status updates are switched off right now.")
+    audit.record("updates_requested", incident.id, user=job["user"], user_id=user_id)
     return {"type": DEFERRED}
 
 
@@ -123,6 +156,16 @@ def public(text: str) -> dict[str, Any]:
 
 def private(text: str) -> dict[str, Any]:
     return {"type": MESSAGE, "data": {"content": text, "flags": EPHEMERAL}}
+
+
+def _find(store: IncidentStore, number: int, statuses: tuple[str, ...]) -> Incident | None:
+    for status in statuses:
+        found = next(
+            (i for i in store.list_incidents(status, limit=50) if i.number == number), None
+        )
+        if found:
+            return found
+    return None
 
 
 def _only_service() -> str:

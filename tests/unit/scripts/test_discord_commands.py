@@ -17,11 +17,12 @@ class Reply(io.BytesIO):
         return None
 
 
-def test_definition_has_status_ack_and_ask_with_service_choices() -> None:
+def test_definition_has_status_ack_update_and_ask_with_service_choices() -> None:
     (command,) = definition(["shoplite"])
     assert command["name"] == "nw"
-    assert [o["name"] for o in command["options"]] == ["status", "ack", "ask"]
-    ask = command["options"][2]["options"]
+    options = {o["name"]: o for o in command["options"]}
+    assert list(options) == ["status", "ack", "update", "ask"]
+    ask = options["ask"]["options"]
     assert ask[0]["max_length"] == 300
     assert ask[1]["choices"] == [{"name": "shoplite", "value": "shoplite"}]
 

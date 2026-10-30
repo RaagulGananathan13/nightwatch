@@ -9,11 +9,13 @@ Then the click itself is checked: the button must name a real action that is sti
 and the person clicking must be one of the service's approvers. Only then does the workflow
 resume, through the task token stored on the action.
 
-Slash commands (``/nw status``, ``/nw ack``, ``/nw ask``) arrive here too, after the same
-signature check, and are handled in ``commands.py``.
+Slash commands (``/nw status``, ``/nw ack``, ``/nw ask``, ``/nw update``) arrive here too,
+after the same signature check, and are handled in ``commands.py``. Drafted status updates
+(spec F13) carry two more buttons, Publish to status page and Discard, under the same approver
+check; drafts can be decided only once.
 
 Discord wants an answer within 3 seconds, so this only makes a few DynamoDB calls and one
-Step Functions or Lambda call.
+Step Functions, Lambda or S3 call.
 """
 
 from __future__ import annotations
@@ -22,6 +24,7 @@ import base64
 import json
 import re
 import time
+from collections.abc import Callable
 from datetime import datetime
 from functools import cache
 from typing import TYPE_CHECKING, Any
@@ -32,14 +35,16 @@ from nacl.exceptions import BadSignatureError
 from nacl.signing import VerifyKey
 
 from nightwatch.agent.services import service_info
-from nightwatch.chat.cards import approval_message
+from nightwatch.chat.cards import approval_message, drafts_message
 from nightwatch.chat.commands import command
 from nightwatch.common.audit import AuditLog
 from nightwatch.common.config import Settings
 from nightwatch.common.incidents import IncidentStore
 from nightwatch.common.log import emit
+from nightwatch.common.secrets import SecretCache
 from nightwatch.common.timeutil import utcnow
 from nightwatch.remediation.actions import ActionStore, TransitionError
+from nightwatch.status import page
 
 if TYPE_CHECKING:
     from mypy_boto3_lambda import LambdaClient
@@ -50,6 +55,8 @@ PONG, MESSAGE, UPDATE_MESSAGE = 1, 4, 7  # response types
 EPHEMERAL = 64  # only the person who clicked sees the reply
 REPLAY_WINDOW_SECONDS = 300
 _CUSTOM_ID = re.compile(r"^nw:(approve|reject):([0-9A-Z]{26}):([0-9A-Z]{26})$")
+_UPDATE_ID = re.compile(r"^nw:(publish|discard):([0-9A-Z]{26})$")
+_secrets = SecretCache()
 
 
 @cache
@@ -60,6 +67,11 @@ def _states() -> SFNClient:
 @cache
 def _lambda() -> LambdaClient:
     return boto3.client("lambda")
+
+
+@cache
+def _s3() -> Any:  # the S3 type stubs aren't installed, to keep CI's install small
+    return boto3.client("s3")
 
 
 def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
@@ -81,22 +93,27 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     audit = AuditLog(settings.table_name, settings.tenant_id, actor="nightwatch-interactions")
     store = IncidentStore(settings.table_name, settings.tenant_id)
     if interaction.get("type") == SLASH_COMMAND:
-        return _http(200, command(interaction, store, audit, utcnow(), _asker(settings)))
+        return _http(200, command(interaction, store, audit, utcnow(), _starter(settings)))
     if interaction.get("type") != COMPONENT:
         return _http(200, _private("NightWatch only handles its own buttons and commands."))
+    if _UPDATE_ID.match(str((interaction.get("data") or {}).get("custom_id", ""))):
+        writer = _status_page(settings, store)
+        return _http(200, decide_update(interaction, store, audit, utcnow(), writer))
     actions = ActionStore(settings.table_name, settings.tenant_id)
     return _http(200, click(interaction, actions, store, audit, utcnow()))
 
 
-def _asker(settings: Settings) -> Any:
-    """Starts the ask Lambda without waiting. False when /nw ask is off or it can't start."""
+def _starter(settings: Settings) -> Callable[[str, dict[str, Any]], bool]:
+    """Starts a slow command's Lambda ("ask" or "updates") without waiting. False when that
+    command is off or its Lambda can't start."""
+    functions = {"ask": settings.ask_function, "updates": settings.updates_function}
 
-    def start(job: dict[str, Any]) -> bool:
-        if not settings.ask_function:
+    def start(kind: str, job: dict[str, Any]) -> bool:
+        if not functions.get(kind):
             return False
         try:
             _lambda().invoke(
-                FunctionName=settings.ask_function,
+                FunctionName=functions[kind],
                 InvocationType="Event",
                 Payload=json.dumps(job).encode(),
             )
@@ -105,6 +122,18 @@ def _asker(settings: Settings) -> Any:
         return True
 
     return start
+
+
+def _status_page(settings: Settings, store: IncidentStore) -> Callable[[datetime], str] | None:
+    """Rewrites the public status page and returns its address; None when there isn't one."""
+    if not settings.status_bucket:
+        return None
+
+    def publish(now: datetime) -> str:
+        site = _secrets.get(settings.dashboard_url_param)
+        return page.publish(store, _s3(), settings.status_bucket, site, now)
+
+    return publish
 
 
 def verify_signature(
@@ -136,9 +165,7 @@ def click(
     if not match:
         return _private("That button isn't one of NightWatch's.")
     verb, incident_id, action_id = match.groups()
-    user = (interaction.get("member") or {}).get("user") or interaction.get("user") or {}
-    user_id = str(user.get("id", ""))
-    user_name = str(user.get("global_name") or user.get("username") or "someone")[:80]
+    user_id, user_name = _who(interaction)
 
     action = actions.get(incident_id, action_id)
     if action is None:
@@ -197,6 +224,95 @@ def click(
     if incident is None:
         return _private(f"Recorded: {decision}.")
     return {"type": UPDATE_MESSAGE, "data": approval_message(action, incident, approvers)}
+
+
+def decide_update(
+    interaction: dict[str, Any],
+    store: IncidentStore,
+    audit: AuditLog,
+    now: datetime,
+    publish: Callable[[datetime], str] | None,
+) -> dict[str, Any]:
+    """Publish or discard drafted updates (spec F13). Returns Discord's response to the click."""
+    match = _UPDATE_ID.match(str((interaction.get("data") or {}).get("custom_id", "")))
+    if not match:
+        return _private("That button isn't one of NightWatch's.")
+    verb, draft_id = match.groups()
+    user_id, user_name = _who(interaction)
+    draft = store.get_draft(draft_id)
+    if draft is None:
+        return _private("NightWatch doesn't know those drafts; drafts are kept for 30 days.")
+    incident_id, service = str(draft["incident_id"]), str(draft["service"])
+    if user_id not in service_info(service).approvers:
+        audit.record(
+            "update_refused",
+            incident_id,
+            draft_id=draft_id,
+            user_id=user_id,
+            user=user_name,
+            why="not an approver",
+        )
+        return _private(f"Only {service}'s approvers can do that. Nothing was published.")
+
+    if verb == "discard":
+        if not store.decide_draft(draft_id, "discarded", user_name, now):
+            return _already(store, draft_id)
+        audit.record(
+            "updates_discarded", incident_id, draft_id=draft_id, user_id=user_id, user=user_name
+        )
+        return {
+            "type": UPDATE_MESSAGE,
+            "data": drafts_message(draft, f"🗑️ Discarded by {user_name}."),
+        }
+
+    if publish is None:
+        return _private("There's no status page to publish to. The drafts are kept.")
+    if not store.decide_draft(draft_id, "published", user_name, now):
+        return _already(store, draft_id)
+    store.add_status_update(
+        {
+            "draft_id": draft_id,
+            "incident_id": incident_id,
+            "label": draft["label"],
+            "public_name": draft["public_name"],
+            "state": draft["state"],
+            "text": draft["customer"],
+            "published_by": user_name,
+        },
+        now,
+    )
+    try:
+        address = publish(now)
+    except (BotoCoreError, ClientError) as exc:
+        audit.record("status_page_failed", incident_id, draft_id=draft_id, error=type(exc).__name__)
+        note = (
+            f"⚠️ Saved by {user_name}, but the page couldn't be written ({type(exc).__name__}). "
+            "The next publish includes it."
+        )
+        return {"type": UPDATE_MESSAGE, "data": drafts_message(draft, note)}
+    audit.record(
+        "status_update_published",
+        incident_id,
+        draft_id=draft_id,
+        user_id=user_id,
+        user=user_name,
+        text=draft["customer"],
+    )
+    emit("INFO", "status update published", incident=draft["label"], user=user_name)
+    published = f"✅ Published by {user_name}: {address}"
+    return {"type": UPDATE_MESSAGE, "data": drafts_message(draft, published)}
+
+
+def _already(store: IncidentStore, draft_id: str) -> dict[str, Any]:
+    status = (store.get_draft(draft_id) or {}).get("status", "decided")
+    return _private(f"These drafts were already {status}.")
+
+
+def _who(interaction: dict[str, Any]) -> tuple[str, str]:
+    """The clicker's Discord id and display name."""
+    user = (interaction.get("member") or {}).get("user") or interaction.get("user") or {}
+    name = str(user.get("global_name") or user.get("username") or "someone")[:80]
+    return str(user.get("id", "")), name
 
 
 def _body(event: dict[str, Any]) -> bytes:

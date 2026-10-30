@@ -54,6 +54,20 @@ def definition(services: list[str]) -> list[dict[str, Any]]:
                 },
                 {
                     "type": SUBCOMMAND,
+                    "name": "update",
+                    "description": "Draft a customer update and a leadership summary",
+                    "options": [
+                        {
+                            "type": TEXT,
+                            "name": "incident",
+                            "description": "For example INC-12",
+                            "required": True,
+                            "max_length": 12,
+                        }
+                    ],
+                },
+                {
+                    "type": SUBCOMMAND,
                     "name": "ask",
                     "description": "Ask a question; NightWatch investigates, read-only",
                     "options": [
