@@ -57,6 +57,18 @@ export function Incident({ id, focus, token }: { id: string; focus?: string; tok
             </ol>
             {diagnosis.impact && <p><strong>Impact:</strong> {diagnosis.impact}</p>}
             {diagnosis.unknowns.length > 0 && <p className="muted"><strong>Couldn't check:</strong> {diagnosis.unknowns.join(" · ")}</p>}
+            {result?.config_fix && (
+              <p>
+                <strong>Terraform setting too small:</strong> <code>{result.config_fix.knob}</code>. {result.config_fix.reason}{" "}
+                {incident.fix_pr_url ? (
+                  <a href={incident.fix_pr_url} rel="noreferrer" target="_blank">
+                    Review the fix pull request
+                  </a>
+                ) : (
+                  <span className="muted">No pull request yet.</span>
+                )}
+              </p>
+            )}
             {result?.similar && result.similar.length > 0 && (
               <div>
                 <strong>Looks like:</strong>

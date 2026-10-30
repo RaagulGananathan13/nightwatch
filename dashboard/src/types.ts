@@ -52,6 +52,7 @@ export interface InvestigationResult {
   duration_ms: number;
   prompt_version: string;
   similar?: Similar[];
+  config_fix?: { knob: string; reason: string; evidence_ids: string[] } | null;
 }
 
 export interface Incident {
@@ -70,6 +71,7 @@ export interface Incident {
   investigation_result: InvestigationResult | null;
   postmortem_key: string | null;
   acked_by_name: string | null;
+  fix_pr_url: string | null;
 }
 
 export interface Evidence {
