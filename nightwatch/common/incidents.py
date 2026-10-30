@@ -314,6 +314,39 @@ class IncidentStore:
             ExpressionAttributeValues=values,
         )
 
+    def set_postmortem(self, incident_id: str, key: str) -> None:
+        self.client.update_item(
+            TableName=self.table,
+            Key=self._key(f"INC#{incident_id}"),
+            UpdateExpression="SET postmortem_key = :k",
+            ConditionExpression="attribute_exists(PK)",
+            ExpressionAttributeValues={":k": _s(key)},
+        )
+
+    def acknowledge(self, incident_id: str, user_id: str, user_name: str, now: datetime) -> bool:
+        """Record who took an open incident. False if it isn't open or someone already has."""
+        try:
+            self.client.update_item(
+                TableName=self.table,
+                Key=self._key(f"INC#{incident_id}"),
+                UpdateExpression="SET acked_by = :u, acked_by_name = :n, acked_at = :t",
+                ConditionExpression=(
+                    "attribute_exists(PK) AND #st = :open AND attribute_not_exists(acked_by)"
+                ),
+                ExpressionAttributeNames={"#st": "status"},
+                ExpressionAttributeValues={
+                    ":u": _s(user_id),
+                    ":n": _s(user_name),
+                    ":t": _s(to_iso(now)),
+                    ":open": _s("open"),
+                },
+            )
+        except ClientError as exc:
+            if _code(exc) == "ConditionalCheckFailedException":
+                return False
+            raise
+        return True
+
     # ---------------------------------------------------------------------- helpers
 
     @property

@@ -79,6 +79,7 @@ class ToolContext:
     aws: Any = field(default_factory=AwsClients)
     sleep: Callable[[float], None] = field(default=lambda seconds: None)
     http_get: Callable[[str], dict[str, Any] | None] | None = None  # GitHub lookups
+    question: str | None = None  # set for /nw ask: answer this instead of an alarm
 
 
 @dataclass(frozen=True)

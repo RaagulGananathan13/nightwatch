@@ -64,6 +64,8 @@ class Investigator:
     def run(self) -> Investigation:
         started = self.clock()
         for tool, args, label in initial_plan(self.ctx):
+            if tool == "search_similar_incidents":  # search with what has been seen so far
+                args = {"text": memory_query(self.ctx, self.ledger.items)}
             self.ledger.gather(self.ctx, tool, args, label)
         if self.llm is None:
             return self._rules(started, "no LLM provider is configured")
@@ -137,6 +139,14 @@ class Investigator:
                 "evidence": [
                     {"id": e.id, "tool": e.tool, "brief": e.brief()} for e in self.ledger.items
                 ],
+                "similar": next(
+                    (
+                        e.data.get("incidents", [])
+                        for e in reversed(self.ledger.items)
+                        if e.tool == "search_similar_incidents" and isinstance(e.data, dict)
+                    ),
+                    [],
+                ),
             }
         )
 
@@ -151,7 +161,6 @@ def initial_plan(ctx: ToolContext) -> list[tuple[str, dict[str, Any], str]]:
         ("get_alarm_context", {"alarm_name": name}, "alarm") for name in sorted(incident.alarms)[:3]
     ]
     steps.append(("recent_changes", {"window_minutes": 60}, "changes"))
-    steps.append(("search_similar_incidents", {"text": incident.title}, "similar"))
     if service.log_groups:
         group = service.log_groups[0]
         for query, label in (
@@ -162,11 +171,33 @@ def initial_plan(ctx: ToolContext) -> list[tuple[str, dict[str, Any], str]]:
         ):
             args = {"log_group": group, "query": query, "minutes": LOG_LOOKBACK_MINUTES}
             steps.append(("query_logs", args, label))
-    for metric in incident_metrics(ctx)[:3]:
+    for metric in (incident_metrics(ctx) or default_metrics(ctx))[:3]:
         steps.append(("get_metric_series", metric, "metric"))
     if service.lambda_functions:
         steps.append(("describe_resource", {"name": service.lambda_functions[0]}, "resource"))
+    # Last, so the search can use what the evidence shows (Investigator.run fills the text).
+    steps.append(("search_similar_incidents", {"text": incident.title}, "similar"))
     return steps
+
+
+def default_metrics(ctx: ToolContext) -> list[dict[str, Any]]:
+    """Without alarms (a question in chat), look at the main function's errors and speed."""
+    if not ctx.service.function:
+        return []
+    dimensions = {"FunctionName": ctx.service.function}
+    return [
+        {"namespace": "AWS/Lambda", "metric": "Errors", "dimensions": dimensions, "stat": "Sum"},
+        {"namespace": "AWS/Lambda", "metric": "Duration", "dimensions": dimensions, "stat": "p95"},
+        {"namespace": "AWS/Lambda", "metric": "Throttles", "dimensions": dimensions, "stat": "Sum"},
+    ]
+
+
+def memory_query(ctx: ToolContext, items: list[Evidence]) -> str:
+    """What to look for in incident memory: the incident plus what changed and what failed."""
+    wanted = ("changes", "errors_by_version", "runtime_errors")
+    seen = [item.summary[:700] for item in items if item.ok and item.label in wanted]
+    alarms = ", ".join(sorted(ctx.incident.alarms))
+    return " ".join([ctx.question or ctx.incident.title, alarms, *seen])[:3000]
 
 
 def incident_metrics(ctx: ToolContext) -> list[dict[str, Any]]:
@@ -199,6 +230,13 @@ def build_messages(ctx: ToolContext, items: list[Evidence], extra_tools: int) ->
         f"{incident.alert_count}.\nTitle: {_escape(incident.title)}\n"
         f"Investigation started {to_iso(ctx.now)}."
     )
+    if ctx.question:  # /nw ask: no incident, a question
+        brief = (
+            f'An engineer asked about service "{incident.service}" at {to_iso(ctx.now)}:\n'
+            f"<question>{_escape(ctx.question)}</question>\n"
+            "Answer it from the evidence, in the same JSON shape: the summary is your answer, "
+            "and the hypotheses are your findings, each with its evidence."
+        )
     evidence = "\n".join(evidence_block(item) for item in items)
     user = f"{brief}\n\nEvidence:\n{evidence}\n\nReturn the JSON object now."
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]

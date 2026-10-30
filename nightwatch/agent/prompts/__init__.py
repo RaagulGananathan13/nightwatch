@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-PROMPT_VERSION = "investigate_v1"
+PROMPT_VERSION = "investigate_v2"
 
 
 def load(version: str = PROMPT_VERSION) -> str:

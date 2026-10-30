@@ -111,3 +111,5 @@ class Investigation(BaseModel):
     prompt_version: str = ""
     fallback_reason: str | None = None
     evidence: list[dict[str, str]] = Field(default_factory=list)  # [{"id", "tool", "brief"}]
+    # Earlier incidents incident memory found (spec F6), straight from the evidence, not the LLM.
+    similar: list[dict[str, Any]] = Field(default_factory=list)

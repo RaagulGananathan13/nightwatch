@@ -55,6 +55,12 @@ def incident_message(incident: Incident, now: datetime) -> dict[str, Any]:
         fields.append(
             {"name": "Reopened", "value": f"{incident.reopen_count}x (flapping)", "inline": True}
         )
+    if incident.acked_by_name:
+        fields.append(
+            {"name": "Acknowledged", "value": _clean(incident.acked_by_name), "inline": True}
+        )
+    if incident.postmortem_key:
+        fields.append({"name": "Postmortem", "value": f"`{_clean(incident.postmortem_key)}`"})
     embed = {
         "title": _limit(f"{label} · {service}", 256),
         "description": _limit(_clean(incident.title), 400),
@@ -104,6 +110,13 @@ def diagnosis_embed(result: dict[str, Any]) -> dict[str, Any]:
         {"name": "Not verified", "value": _limit("\n".join(unknowns) or "-", 500)},
         {"name": "Evidence", "value": _limit("\n".join(evidence) or "-", 1000)},
     ]
+    similar = [
+        f"{_clean(str(s.get('label')))}, {_clean(str(s.get('when')))}: "
+        f"{_limit(_clean(str(s.get('cause'))), 160)}"
+        for s in (result.get("similar") or [])[:3]
+    ]
+    if similar:  # spec F6: "This looks like INC-0042 ..."
+        fields.insert(0, {"name": "Looks like", "value": _limit("\n".join(similar), 700)})
     if result.get("method") == "llm":
         footer = (
             f"{result.get('model')} via {result.get('provider')} · {result.get('llm_calls')} "
@@ -130,10 +143,13 @@ def _top_hypothesis(result: dict[str, Any] | None) -> str | None:
 
 
 def duration(span: timedelta) -> str:
-    """Short human duration: 45s, 6m 20s, 1h 5m."""
+    """Short human duration: 45s, 6m 20s, 1h 5m, 3d 4h."""
     seconds = max(0, int(span.total_seconds()))
     hours, rest = divmod(seconds, 3600)
     minutes, secs = divmod(rest, 60)
+    days, hours = divmod(hours, 24)
+    if days:
+        return f"{days}d {hours}h"
     if hours:
         return f"{hours}h {minutes}m"
     if minutes:

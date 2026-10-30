@@ -1,48 +1,68 @@
-"""search_similar_incidents: earlier incidents on the same service.
+"""search_similar_incidents: earlier incidents that looked like this one (spec F6).
 
-For now this lists the most recent resolved incidents with their diagnoses. Phase 6 replaces
-it with real similarity search over incident memory (spec F6).
+Searches incident memory: every resolved incident is remembered with its cause and its fix.
+The investigation searches with what it has already seen (the alarms, what changed, the error
+types), so a repeat of an earlier failure finds that earlier incident first.
 """
 
 from __future__ import annotations
+
+from datetime import datetime
 
 from pydantic import BaseModel, Field
 
 from nightwatch.agent.tools import Tool, ToolContext, ToolResult
 from nightwatch.chat.cards import duration
+from nightwatch.memory.store import MemoryStore
 
 
 class Args(BaseModel):
-    text: str = Field(default="", max_length=500)
+    text: str = Field(default="", max_length=3000)
 
 
 def run(ctx: ToolContext, args: Args) -> ToolResult:
-    earlier = [
-        incident
-        for incident in ctx.store.list_incidents("resolved", limit=25)
-        if incident.service == ctx.incident.service and incident.id != ctx.incident.id
-    ][:3]
-    if not earlier:
+    store = MemoryStore(ctx.store.table, ctx.store.tenant, ctx.store.client)
+    text = args.text or ctx.incident.title
+    matches = store.search(ctx.incident.service, text, ctx.now, exclude=ctx.incident.id)
+    if not matches:
         return ToolResult(
-            f"No earlier resolved incidents for {ctx.incident.service}.", {"incidents": []}
+            f"No earlier {ctx.incident.service} incident in memory looks like this one.",
+            {"incidents": []},
         )
-    lines = [f"Most recent resolved incidents for {ctx.incident.service}:"]
+    lines = [
+        f"Earlier {ctx.incident.service} incidents that look like this one, most similar first:"
+    ]
     data = []
-    for incident in earlier:
-        took = duration(incident.resolved_at - incident.opened_at) if incident.resolved_at else "?"
-        result = incident.investigation_result or {}
-        cause = str((result.get("diagnosis") or {}).get("summary", "not diagnosed"))[:200]
+    for match in matches:
+        memory = match.memory
+        when = ago(ctx.now, memory.resolved_at or memory.opened_at)
         lines.append(
-            f"{incident.label} ({incident.opened_at:%Y-%m-%d %H:%M} UTC, resolved after {took}, "
-            f"alarms {', '.join(sorted(incident.alarms))}): {cause}"
+            f"{memory.label}, {when} (similarity {match.score:.2f}): {memory.cause} "
+            f"Fix: {memory.fix}."
         )
-        data.append({"label": incident.label, "id": incident.id, "cause": cause})
+        data.append(
+            {
+                "label": memory.label,
+                "id": memory.incident_id,
+                "score": match.score,
+                "cause": memory.cause,
+                "fix": memory.fix,
+                "when": when,
+            }
+        )
     return ToolResult("\n".join(lines), {"incidents": data})
+
+
+def ago(now: datetime, then: datetime) -> str:
+    return f"{duration(now - then)} ago"
 
 
 TOOL = Tool(
     name="search_similar_incidents",
-    description="Recent resolved incidents on the same service and what caused them.",
+    description=(
+        "Earlier incidents on the same service that look like this one, with what caused them "
+        "and what fixed them. 'text' describes what to look for."
+    ),
     args=Args,
     run=run,
 )

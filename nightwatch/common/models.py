@@ -72,6 +72,10 @@ class Incident(BaseModel):
     investigation: InvestigationStatus | None = None
     # nightwatch.agent.models.Investigation, stored as JSON text (DynamoDB has no floats).
     investigation_result: Annotated[dict[str, Any] | None, BeforeValidator(_json_or_none)] = None
+    postmortem_key: str | None = None  # S3 key of the postmortem, once written (spec F8)
+    acked_by: str | None = None  # Discord user id, from /nw ack (spec F9)
+    acked_by_name: str | None = None
+    acked_at: datetime | None = None
 
     @property
     def label(self) -> str:
