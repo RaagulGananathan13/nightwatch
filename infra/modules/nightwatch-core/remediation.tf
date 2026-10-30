@@ -216,9 +216,23 @@ data "aws_iam_policy_document" "interactions" {
   }
 
   statement {
-    sid       = "StartAsk"
+    sid       = "StartSlowCommands"
     actions   = ["lambda:InvokeFunction"]
-    resources = [aws_lambda_function.ask.arn]
+    resources = [aws_lambda_function.ask.arn, aws_lambda_function.updates.arn]
+  }
+
+  statement {
+    # An approver's Publish click rewrites the public status page (spec F13); nothing else
+    # in the dashboard's bucket.
+    sid       = "WriteStatusPage"
+    actions   = ["s3:PutObject"]
+    resources = ["arn:aws:s3:::${local.status_bucket}/status/*"]
+  }
+
+  statement {
+    sid       = "ReadDashboardAddress"
+    actions   = ["ssm:GetParameter"]
+    resources = ["arn:aws:ssm:${local.region}:${local.account}:parameter/nightwatch/dashboard/url"]
   }
 
   statement {
@@ -244,7 +258,7 @@ resource "aws_lambda_function" "interactions" {
   #checkov:skip=CKV_AWS_173:Environment variables hold ids and a public key only, no secrets
   #checkov:skip=CKV_AWS_272:Code signing is a paid workflow feature for this use
   function_name    = local.interactions_name
-  description      = "Verifies Discord button clicks and resumes the approval wait (spec F5)"
+  description      = "Checks Discord clicks and commands: fix approvals, /nw, status updates"
   role             = aws_iam_role.interactions.arn
   runtime          = "python3.13"
   architectures    = ["arm64"]
@@ -261,6 +275,8 @@ resource "aws_lambda_function" "interactions" {
       TENANT_ID          = var.tenant_id
       DISCORD_PUBLIC_KEY = var.discord_public_key
       ASK_FUNCTION       = aws_lambda_function.ask.function_name
+      UPDATES_FUNCTION   = aws_lambda_function.updates.function_name
+      STATUS_BUCKET      = local.status_bucket
     }
   }
 

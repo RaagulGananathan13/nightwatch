@@ -116,13 +116,14 @@ data "aws_iam_policy_document" "investigate" {
   }
 
   statement {
-    # The verify and ask Lambdas share this read-only role.
+    # The verify, ask and updates Lambdas share this read-only role.
     sid     = "WriteLogs"
     actions = ["logs:CreateLogStream", "logs:PutLogEvents"]
     resources = [
       "${aws_cloudwatch_log_group.investigate.arn}:*",
       "${aws_cloudwatch_log_group.verify.arn}:*",
       "${aws_cloudwatch_log_group.ask.arn}:*",
+      "${aws_cloudwatch_log_group.updates.arn}:*",
     ]
   }
 }
