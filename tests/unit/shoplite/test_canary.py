@@ -1,6 +1,7 @@
 """The canary signs its requests and reports, never raises, when the store is broken."""
 
 import json
+import time
 from typing import Any
 
 import pytest
@@ -77,7 +78,7 @@ def test_canary_walks_the_customer_journey(
 
 def test_load_mode_counts_every_status_and_caps_itself(monkeypatch: pytest.MonkeyPatch) -> None:
     ticks = iter(range(10_000))
-    monkeypatch.setattr(canary.time, "monotonic", lambda: next(ticks) * 0.5)
+    monkeypatch.setattr(time, "monotonic", lambda: next(ticks) * 0.5)
     monkeypatch.setattr(canary, "signed_request", lambda *args, **kwargs: (502, None))
     credentials = Credentials("test-key", "test-secret")
     summary = canary.load("https://example.com", credentials, "us-east-2", 600, 50)
