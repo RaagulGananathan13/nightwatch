@@ -7,6 +7,23 @@ from pydantic import BaseModel, Field
 from nightwatch.agent.services import load_services
 from nightwatch.agent.tools import Tool, ToolContext, ToolError, ToolResult
 
+# What the evidence keeps: facts about the service. Settings for other features (the SLO, fix
+# limits, approvers) stay out, because their numbers aren't observations: the claim guard
+# would otherwise accept "99 requests" on the strength of the 99.5% availability target.
+FACTS = {
+    "name",
+    "description",
+    "owner",
+    "repository",
+    "lambda_functions",
+    "lambda_alias",
+    "log_groups",
+    "dynamodb_tables",
+    "ssm_parameters",
+    "dependencies",
+    "deploys",
+}
+
 
 class Args(BaseModel):
     service: str = Field(max_length=100)
@@ -29,7 +46,7 @@ def run(ctx: ToolContext, args: Args) -> ToolResult:
         f"Depends on: {', '.join(info.dependencies) or '-'}.",
         f"Deploys: {info.deploys or 'unknown'}",
     ]
-    return ToolResult("\n".join(lines), info.model_dump())
+    return ToolResult("\n".join(lines), info.model_dump(include=FACTS))
 
 
 TOOL = Tool(

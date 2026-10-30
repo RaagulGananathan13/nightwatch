@@ -167,5 +167,6 @@ def test_alarm_context_only_for_this_incidents_alarms() -> None:
 def test_service_info_from_the_catalogue() -> None:
     result = run_tool("get_service_info", {"service": "shoplite"}, context())
     assert "shoplite-api" in result.summary
+    assert "slo" not in result.data  # a target, not an observation: it can't back a claim
     with pytest.raises(ToolError, match="no service"):
         run_tool("get_service_info", {"service": "nope"}, context())
