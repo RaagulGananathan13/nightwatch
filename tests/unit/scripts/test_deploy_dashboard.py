@@ -55,8 +55,8 @@ def test_cache_rules_and_content_types(tmp_path: Path) -> None:
     assert files["eval-results.json"][2] == "no-cache"
 
 
-def test_deploy_uploads_removes_stale_files_but_keeps_config(tmp_path: Path) -> None:
-    s3 = FakeS3(["config.json", "assets/index-old.js"])
+def test_deploy_removes_stale_files_but_keeps_config_and_the_status_page(tmp_path: Path) -> None:
+    s3 = FakeS3(["config.json", "assets/index-old.js", "status/index.html"])
     cloudfront = FakeCloudFront()
     stale = deploy(s3, cloudfront, "bucket", "DIST", built(tmp_path))
     assert stale == ["assets/index-old.js"]

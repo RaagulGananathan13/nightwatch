@@ -5,7 +5,8 @@
 The file names under assets/ change whenever their content does, so those can be cached
 for a year. Everything else (index.html, the eval results) is cached for 0 seconds and its
 CloudFront copy is cleared. Files no longer in the build are removed, except config.json,
-which Terraform writes.
+which Terraform writes, and the public status page under status/, which NightWatch writes
+when an update is published.
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ import boto3
 
 DIST = Path(__file__).resolve().parents[1] / "dashboard" / "dist"
 KEEP = {"config.json"}  # written by Terraform, not the build
+KEEP_UNDER = "status/"  # the public status page, written by NightWatch (spec F13)
 TYPES = {
     ".js": "text/javascript",
     ".css": "text/css",
@@ -57,7 +59,9 @@ def deploy(s3: Any, cloudfront: Any, bucket: str, distribution: str, dist: Path)
         obj["Key"]
         for page in s3.get_paginator("list_objects_v2").paginate(Bucket=bucket)
         for obj in page.get("Contents", [])
-        if obj["Key"] not in files and obj["Key"] not in KEEP
+        if obj["Key"] not in files
+        and obj["Key"] not in KEEP
+        and not obj["Key"].startswith(KEEP_UNDER)
     ]
     for key in stale:
         s3.delete_object(Bucket=bucket, Key=key)
