@@ -196,14 +196,15 @@ resource "aws_cognito_user_pool_client" "dashboard" {
   }
 }
 
-# Cognito emails each person a temporary password.
+# Cognito emails each person a temporary password. Indexed by position, not by address,
+# because the addresses are sensitive and resource keys show up in public CI logs.
 resource "aws_cognito_user" "people" {
-  for_each     = toset(var.users)
+  count        = nonsensitive(length(var.users))
   user_pool_id = aws_cognito_user_pool.dashboard.id
-  username     = each.value
+  username     = var.users[count.index]
 
   attributes = {
-    email          = each.value
+    email          = var.users[count.index]
     email_verified = true
   }
 
