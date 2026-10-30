@@ -33,6 +33,21 @@ output "discord_interactions_url" {
   value       = module.nightwatch_core.interactions_url
 }
 
+output "dashboard_url" {
+  description = "The web dashboard. Cognito emails each user a temporary password."
+  value       = module.dashboard.url
+}
+
+output "dashboard_bucket" {
+  description = "Set as the DASHBOARD_BUCKET variable in GitHub, for CI deploys."
+  value       = module.dashboard.bucket
+}
+
+output "dashboard_distribution_id" {
+  description = "Set as the DASHBOARD_DISTRIBUTION_ID variable in GitHub, for CI deploys."
+  value       = module.dashboard.distribution_id
+}
+
 output "postmortem_bucket" {
   description = "Postmortems, one markdown file per resolved incident."
   value       = module.nightwatch_core.postmortem_bucket

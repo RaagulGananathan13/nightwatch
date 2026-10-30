@@ -30,6 +30,14 @@ variable "deployable_function_arns" {
   type        = list(string)
 }
 
+variable "dashboard" {
+  description = "The dashboard's bucket and CloudFront distribution, which CI deploys to."
+  type = object({
+    bucket_arn       = string
+    distribution_arn = string
+  })
+}
+
 variable "state_bucket_arn" {
   description = "Terraform state bucket, read by the plan role."
   type        = string

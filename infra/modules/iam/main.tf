@@ -93,6 +93,18 @@ data "aws_iam_policy_document" "deploy" {
     actions   = ["lambda:InvokeFunctionUrl", "lambda:InvokeFunction"]
     resources = [for arn in var.deployable_function_arns : "${arn}:live"]
   }
+
+  statement {
+    sid       = "UploadDashboard"
+    actions   = ["s3:ListBucket", "s3:PutObject", "s3:DeleteObject"]
+    resources = [var.dashboard.bucket_arn, "${var.dashboard.bucket_arn}/*"]
+  }
+
+  statement {
+    sid       = "RefreshDashboardCache"
+    actions   = ["cloudfront:CreateInvalidation"]
+    resources = [var.dashboard.distribution_arn]
+  }
 }
 
 # ----------------------------------------------------------------------------- plan
@@ -192,5 +204,33 @@ data "aws_iam_policy_document" "plan" {
     sid       = "ReadState"
     actions   = ["s3:GetObject", "s3:ListBucket"]
     resources = [var.state_bucket_arn, "${var.state_bucket_arn}/*"]
+  }
+
+  statement {
+    # The postmortem and dashboard buckets' settings (Terraform reads them all in a plan).
+    sid     = "ReadOwnBuckets"
+    actions = ["s3:GetBucket*", "s3:GetLifecycleConfiguration", "s3:GetEncryptionConfiguration", "s3:GetObject", "s3:ListBucket", "s3:GetObjectTagging", "s3:GetAccelerateConfiguration", "s3:GetReplicationConfiguration"]
+    resources = [
+      "arn:aws:s3:::nightwatch-${local.account}-*",
+      "arn:aws:s3:::nightwatch-${local.account}-*/*",
+    ]
+  }
+
+  statement {
+    sid       = "ReadDashboardCdn" # CloudFront and its managed policies are account-wide
+    actions   = ["cloudfront:Get*", "cloudfront:List*"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid       = "ReadDashboardLogin"
+    actions   = ["cognito-idp:Describe*", "cognito-idp:Get*", "cognito-idp:List*", "cognito-idp:AdminGetUser"]
+    resources = ["arn:aws:cognito-idp:${local.region}:${local.account}:userpool/*"]
+  }
+
+  statement {
+    sid       = "ReadLoginDomain" # this API has no resource-level permissions
+    actions   = ["cognito-idp:DescribeUserPoolDomain"]
+    resources = ["*"]
   }
 }

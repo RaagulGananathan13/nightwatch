@@ -30,6 +30,7 @@ GIT_SHA := $(shell git rev-parse --short=12 HEAD 2>/dev/null || echo dev)
 .PHONY: bootstrap-plan bootstrap-apply init plan apply destroy chaos-bad-deploy chaos-error-flag
 .PHONY: chaos chaos-list chaos-fix chaos-fix-flag discord-endpoint eval
 .PHONY: memory-check discord-commands backfill-memory
+.PHONY: dashboard dashboard-check dashboard-dev dashboard-deploy
 
 help: ## Show this list
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-15s %s\n", $$1, $$2}'
@@ -122,6 +123,20 @@ chaos-fix: ## Deploy a buggy commit and keep it live until you approve NightWatc
 
 chaos-fix-flag: ## Turn on the error flag and keep it on until you approve NightWatch's fix
 	$(PY) -m chaos.error_flag --let-nightwatch-fix
+
+dashboard: ## Build the web dashboard into dashboard/dist
+	cd dashboard && npm ci --no-audit --no-fund && npm run build
+
+dashboard-check: ## Type-check and test the dashboard (CI runs this too)
+	cd dashboard && npm run typecheck && npm test
+
+dashboard-dev: ## Run the dashboard locally against the deployed API (needs NIGHTWATCH_URL)
+	cd dashboard && npm run dev
+
+dashboard-deploy: ## Upload the built dashboard and refresh CloudFront (CI does this on merge)
+	$(PY) -m scripts.deploy_dashboard --profile $(AWS_PROFILE) \
+		--bucket "$$(terraform -chdir=infra/envs/dev output -raw dashboard_bucket)" \
+		--distribution "$$(terraform -chdir=infra/envs/dev output -raw dashboard_distribution_id)"
 
 discord-commands: ## Register the /nw slash command in your Discord server (after apply)
 	$(PY) -m scripts.discord_commands --guild $(DISCORD_GUILD_ID)

@@ -1,0 +1,59 @@
+# Ships the web dashboard on every merge to main that touches it, or new eval results.
+#
+# The app is built here, uploaded to its private S3 bucket, and CloudFront's copy of the
+# entry files is cleared. Only jobs in the `dev` environment can assume the deploy role, which
+# may write to the dashboard bucket and clear its cache, nothing else of the dashboard's.
+name: Deploy dashboard
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "dashboard/**"
+      - "eval/results.json"
+      - "scripts/deploy_dashboard.py"
+      - ".github/workflows/dashboard.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # lets the job ask GitHub for an OIDC token for AWS
+
+concurrency:
+  group: deploy-dashboard
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # Skipped until Phase 7 is applied and the bucket is saved as a repository variable.
+    if: vars.DASHBOARD_BUCKET != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: dev
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+      - name: Build
+        working-directory: dashboard
+        run: |
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          npm test
+          npm run build
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+      - run: pip install --quiet boto3==1.43.120
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-2
+          role-session-name: deploy-dashboard-${{ github.run_id }}
+      - name: Upload and refresh the cache
+        run: >-
+          python -m scripts.deploy_dashboard --bucket "${{ vars.DASHBOARD_BUCKET }}"
+          --distribution "${{ vars.DASHBOARD_DISTRIBUTION_ID }}"

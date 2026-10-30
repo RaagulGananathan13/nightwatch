@@ -56,6 +56,22 @@ module "nightwatch_core" {
   discord_public_key = var.discord_public_key
 }
 
+# The web dashboard (Phase 7): CloudFront, S3, Cognito and a read-only API.
+module "dashboard" {
+  source                = "../../modules/dashboard"
+  package_path          = "${path.root}/../../../.build/nightwatch.zip"
+  layer_arn             = module.nightwatch_core.layer_arn
+  boundary_policy_arn   = local.boundary_policy_arn
+  table_name            = module.nightwatch_core.table_name
+  table_arn             = module.nightwatch_core.table_arn
+  postmortem_bucket     = module.nightwatch_core.postmortem_bucket
+  postmortem_bucket_arn = module.nightwatch_core.postmortem_bucket_arn
+  kill_switch_param     = module.nightwatch_core.kill_switch_parameter
+  llm_providers         = "groq:openai/gpt-oss-120b,groq:qwen/qwen3.8-27b"
+  # Who may sign in; defaults to the budget alert address.
+  users = length(var.dashboard_users) > 0 ? var.dashboard_users : [var.budget_alert_email]
+}
+
 module "alarms" {
   source        = "../../modules/alarms"
   service       = "shoplite"
@@ -70,6 +86,10 @@ module "iam" {
   boundary_policy_arn      = local.boundary_policy_arn
   deployable_function_arns = [module.shoplite.function_arn]
   state_bucket_arn         = local.state_bucket_arn
+  dashboard = {
+    bucket_arn       = module.dashboard.bucket_arn
+    distribution_arn = module.dashboard.distribution_arn
+  }
 }
 
 # ------------------------------------------------------------------- free-tier guard

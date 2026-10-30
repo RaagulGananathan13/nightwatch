@@ -2,6 +2,19 @@ output "table_name" {
   value = aws_dynamodb_table.this.name
 }
 
+output "table_arn" {
+  value = aws_dynamodb_table.this.arn
+}
+
+output "layer_arn" {
+  description = "The third-party packages layer, shared with the dashboard API."
+  value       = aws_lambda_layer_version.deps.arn
+}
+
+output "postmortem_bucket_arn" {
+  value = aws_s3_bucket.postmortems.arn
+}
+
 output "ingest_function_name" {
   value = aws_lambda_function.ingest.function_name
 }

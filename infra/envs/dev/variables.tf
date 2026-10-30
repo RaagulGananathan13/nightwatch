@@ -59,6 +59,12 @@ variable "canary_schedule" {
   default     = "rate(1 minute)"
 }
 
+variable "dashboard_users" {
+  description = "Email addresses that may sign in to the dashboard. Empty means just budget_alert_email."
+  type        = list(string)
+  default     = []
+}
+
 variable "discord_channel_id" {
   description = "Discord channel where approval cards are posted (#incidents)."
   type        = string
