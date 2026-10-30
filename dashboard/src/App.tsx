@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { type Config, currentTokens, finishSignIn, signOut, startSignIn } from "./auth.ts";
+import { Alarms } from "./pages/Alarms.tsx";
 import { Eval } from "./pages/Eval.tsx";
 import { Incident } from "./pages/Incident.tsx";
 import { Incidents } from "./pages/Incidents.tsx";
@@ -62,6 +63,7 @@ export function App() {
         <nav>
           {[
             ["incidents", "Incidents"],
+            ["alarms", "Alarms"],
             ["eval", "Evaluation"],
             ["runbooks", "Runbooks"],
             ["settings", "Settings"],
@@ -78,6 +80,7 @@ export function App() {
       <main>
         {page === "incidents" && id && <Incident id={id} focus={focus} token={token} />}
         {page === "incidents" && !id && <Incidents token={token} />}
+        {page === "alarms" && <Alarms token={token} />}
         {page === "eval" && <Eval />}
         {page === "runbooks" && <Runbooks token={token} />}
         {page === "settings" && <Settings token={token} />}

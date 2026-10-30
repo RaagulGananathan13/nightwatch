@@ -4,6 +4,7 @@
     GET /api/incidents/<id>                   the incident with its alerts, evidence, timeline,
                                               fixes and postmortem
     GET /api/runbooks
+    GET /api/alarms                           the latest alert-quality report (spec F11)
     GET /api/settings                         kill switch, services, LLM settings
     GET /api/me
 
@@ -82,6 +83,8 @@ def route(settings: Settings, user: User, path: str, event: dict[str, Any]) -> d
         return reply(200, {"runbooks": [b.model_dump(by_alias=True) for b in books.values()]})
     if parts[1:] == ["settings"]:
         return reply(200, settings_view(settings))
+    if parts[1:] == ["alarms"]:
+        return reply(200, {"report": latest_alarm_report(store)})
     return reply(404, {"error": "not found"})
 
 
@@ -143,6 +146,22 @@ def incident_detail(settings: Settings, store: IncidentStore, incident_id: str) 
             "postmortem": _postmortem(settings, incident),
         },
     )
+
+
+def latest_alarm_report(store: IncidentStore) -> dict[str, Any] | None:
+    reply = store.client.query(
+        TableName=store.table,
+        KeyConditionExpression="PK = :pk AND begins_with(SK, :report)",
+        ExpressionAttributeValues={
+            ":pk": {"S": f"TENANT#{store.tenant}"},
+            ":report": {"S": "REPORT#alarms#"},
+        },
+        ScanIndexForward=False,
+        Limit=1,
+    )
+    items = reply.get("Items", [])
+    report: dict[str, Any] | None = json.loads(items[0]["json"]["S"]) if items else None
+    return report
 
 
 def settings_view(settings: Settings) -> dict[str, Any]:
