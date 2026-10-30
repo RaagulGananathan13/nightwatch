@@ -23,11 +23,13 @@ TF_ENV := $(TF_DIR)/envs/dev
 
 # Local Terraform and AWS runs use the restricted deployer profile (ADR 0006).
 export AWS_PROFILE ?= nightwatch
+DISCORD_GUILD_ID ?= 1565026603212210176
 GIT_SHA := $(shell git rev-parse --short=12 HEAD 2>/dev/null || echo dev)
 
 .PHONY: help install fmt lint typecheck test check security tf-fmt tf-check clean build
 .PHONY: bootstrap-plan bootstrap-apply init plan apply destroy chaos-bad-deploy chaos-error-flag
 .PHONY: chaos chaos-list chaos-fix chaos-fix-flag discord-endpoint eval
+.PHONY: memory-check discord-commands backfill-memory
 
 help: ## Show this list
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-15s %s\n", $$1, $$2}'
@@ -120,6 +122,15 @@ chaos-fix: ## Deploy a buggy commit and keep it live until you approve NightWatc
 
 chaos-fix-flag: ## Turn on the error flag and keep it on until you approve NightWatch's fix
 	$(PY) -m chaos.error_flag --let-nightwatch-fix
+
+discord-commands: ## Register the /nw slash command in your Discord server (after apply)
+	$(PY) -m scripts.discord_commands --guild $(DISCORD_GUILD_ID)
+
+backfill-memory: ## Write postmortems and memories for incidents resolved before Phase 6
+	$(PY) -m scripts.backfill_memory
+
+memory-check: ## Run the bad deploy twice: the second diagnosis must cite the first (~30 min)
+	$(PY) -m chaos.memory_check bad-deploy
 
 discord-endpoint: ## Point the Discord application's button clicks at NightWatch (after apply)
 	$(PY) -m scripts.discord_endpoint --url "$$(terraform -chdir=infra/envs/dev output -raw discord_interactions_url)"

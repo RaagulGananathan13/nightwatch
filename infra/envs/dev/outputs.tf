@@ -33,6 +33,11 @@ output "discord_interactions_url" {
   value       = module.nightwatch_core.interactions_url
 }
 
+output "postmortem_bucket" {
+  description = "Postmortems, one markdown file per resolved incident."
+  value       = module.nightwatch_core.postmortem_bucket
+}
+
 output "kill_switch_parameter" {
   description = "Set to true to stop every NightWatch fix."
   value       = module.nightwatch_core.kill_switch_parameter

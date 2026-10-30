@@ -159,6 +159,12 @@ data "aws_iam_policy_document" "ingest" {
   }
 
   statement {
+    sid       = "StartPostmortem"
+    actions   = ["lambda:InvokeFunction"]
+    resources = [aws_lambda_function.postmortem.arn]
+  }
+
+  statement {
     sid       = "DeadLetters"
     actions   = ["sqs:SendMessage"]
     resources = [aws_sqs_queue.ingest_dlq.arn]
@@ -202,6 +208,7 @@ resource "aws_lambda_function" "ingest" {
       DISCORD_WEBHOOK_PARAM = var.discord_webhook_param
       FLAP_WINDOW_MINUTES   = tostring(var.flap_window_minutes)
       STATE_MACHINE_ARN     = aws_sfn_state_machine.incident.arn
+      POSTMORTEM_FUNCTION   = aws_lambda_function.postmortem.function_name
     }
   }
 

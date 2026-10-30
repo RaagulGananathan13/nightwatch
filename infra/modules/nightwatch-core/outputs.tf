@@ -33,6 +33,11 @@ output "interactions_url" {
   value       = aws_lambda_function_url.interactions.function_url
 }
 
+output "postmortem_bucket" {
+  description = "Where postmortems are written: postmortems/<tenant>/<INC-number>.md"
+  value       = aws_s3_bucket.postmortems.bucket
+}
+
 output "kill_switch_parameter" {
   value = aws_ssm_parameter.kill_switch.name
 }

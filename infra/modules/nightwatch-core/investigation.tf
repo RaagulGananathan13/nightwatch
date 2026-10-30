@@ -116,12 +116,13 @@ data "aws_iam_policy_document" "investigate" {
   }
 
   statement {
-    # The verify Lambda shares this read-only role.
+    # The verify and ask Lambdas share this read-only role.
     sid     = "WriteLogs"
     actions = ["logs:CreateLogStream", "logs:PutLogEvents"]
     resources = [
       "${aws_cloudwatch_log_group.investigate.arn}:*",
       "${aws_cloudwatch_log_group.verify.arn}:*",
+      "${aws_cloudwatch_log_group.ask.arn}:*",
     ]
   }
 }
@@ -213,6 +214,12 @@ data "aws_iam_policy_document" "report" {
   }
 
   statement {
+    sid       = "StartPostmortem"
+    actions   = ["lambda:InvokeFunction"]
+    resources = [aws_lambda_function.postmortem.arn]
+  }
+
+  statement {
     sid       = "DecryptViaSsmOnly"
     actions   = ["kms:Decrypt"]
     resources = ["arn:aws:kms:${local.region}:${local.account}:key/*"]
@@ -259,6 +266,7 @@ resource "aws_lambda_function" "report" {
       DISCORD_CHANNEL_ID       = var.discord_channel_id
       APPROVAL_TIMEOUT_MINUTES = tostring(var.approval_timeout_minutes)
       KILL_SWITCH_PARAM        = var.kill_switch_param
+      POSTMORTEM_FUNCTION      = aws_lambda_function.postmortem.function_name
     }
   }
 

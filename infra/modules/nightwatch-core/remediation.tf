@@ -211,8 +211,14 @@ resource "aws_iam_role_policy" "interactions" {
 data "aws_iam_policy_document" "interactions" {
   statement {
     sid       = "NightWatchState"
-    actions   = ["dynamodb:GetItem", "dynamodb:PutItem"]
-    resources = [aws_dynamodb_table.this.arn]
+    actions   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:Query", "dynamodb:UpdateItem"]
+    resources = [aws_dynamodb_table.this.arn, "${aws_dynamodb_table.this.arn}/index/*"]
+  }
+
+  statement {
+    sid       = "StartAsk"
+    actions   = ["lambda:InvokeFunction"]
+    resources = [aws_lambda_function.ask.arn]
   }
 
   statement {
@@ -254,6 +260,7 @@ resource "aws_lambda_function" "interactions" {
       TABLE_NAME         = aws_dynamodb_table.this.name
       TENANT_ID          = var.tenant_id
       DISCORD_PUBLIC_KEY = var.discord_public_key
+      ASK_FUNCTION       = aws_lambda_function.ask.function_name
     }
   }
 
