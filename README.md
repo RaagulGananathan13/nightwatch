@@ -75,7 +75,7 @@ Phase 9 is tagged `v1.0`.
 | 5 | Chaos lab and evaluation harness (accuracy, time to diagnosis) | Done |
 | 6 | Incident memory, auto-revert, postmortems, ChatOps commands | Done |
 | 7 | Web dashboard (React and Cognito) | Done |
-| 8 | Fix-as-PR, alert-noise coach, predictions, status page, MCP server, cost guardian | In progress: fix-as-PR, alert coach and forecasts done |
+| 8 | Fix-as-PR, alert-noise coach, predictions, status page, MCP server, cost guardian | In progress: fix-as-PR, alert coach, forecasts and status updates done |
 | 9 | Multi-account connect, docs, security review, launch | Planned |
 
 ## Cost
@@ -231,6 +231,19 @@ toward the 5 provisioned units, and the trend reaches them around 3 November. Th
 experiments caused both. Forecasts run every morning and appear on the dashboard's Forecasts
 page. Discord hears only when one gets worse
 ([ADR 0018](docs/decisions/0018-predictive-warnings.md)).
+
+**Phase 8, stakeholder updates (2026-10-30, `/nw update incident:INC-017`).** One call to
+gpt-oss-120b drafted both updates for the resolved read-capacity incident. The customer update
+was plain and named nothing internal: "We experienced a brief outage where all ShopLite API
+requests were returning errors. The issue was identified and resolved, and the service is now
+operating normally." The leadership summary kept the internal detail: DynamoDB, the Lambda
+version, and the configuration change waiting for review. It also over-reached once, calling
+the Lambda version "newly deployed" when the cause was a traffic surge, which is one reason
+that summary is never published. One click on **Publish to status page** put the customer
+update on the public page (`/status/index.html` on the dashboard's address), under "All
+systems operational". The first try showed no buttons, because the code that edits a slash
+command's reply dropped them; that was fixed the same evening
+([ADR 0019](docs/decisions/0019-stakeholder-updates.md)).
 
 Earlier runs against the deployed stack, from 2026-10-28:
 
