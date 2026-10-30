@@ -16,7 +16,7 @@ from typing import Any
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 
-from nightwatch.agent.models import Evidence
+from nightwatch.agent.evidence import load_evidence
 from nightwatch.agent.providers import build_chain
 from nightwatch.agent.providers.base import LLMError, LLMUnavailableError
 from nightwatch.agent.providers.chain import DailyBudget
@@ -58,7 +58,9 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
 
     actions = ActionStore(settings.table_name, settings.tenant_id).for_incident(incident_id)
     actions.sort(key=lambda action: action.created_at)
-    facts = Facts(incident, audit.for_incident(incident_id), actions, _evidence(store, incident_id))
+    facts = Facts(
+        incident, audit.for_incident(incident_id), actions, load_evidence(store, incident_id)
+    )
     lessons = _lessons(settings, facts) or rule_lessons(facts)
     key = f"postmortems/{settings.tenant_id}/{incident.label}.md"
     _s3().put_object(
@@ -95,18 +97,6 @@ def _lessons(settings: Settings, facts: Facts) -> Lessons | None:
         emit("WARNING", "lessons fell back to rules", error=str(exc)[:200])
         return None
     return parse_lessons(response.text, response.model)
-
-
-def _evidence(store: IncidentStore, incident_id: str) -> list[Evidence]:
-    reply = store.client.query(
-        TableName=store.table,
-        KeyConditionExpression="PK = :pk AND begins_with(SK, :ev)",
-        ExpressionAttributeValues={
-            ":pk": {"S": f"TENANT#{store.tenant}#INC#{incident_id}"},
-            ":ev": {"S": "EV#"},
-        },
-    )
-    return [Evidence.model_validate_json(item["json"]["S"]) for item in reply.get("Items", [])]
 
 
 def _show_on_discord(settings: Settings, store: IncidentStore, incident_id: str) -> None:

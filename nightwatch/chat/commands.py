@@ -18,7 +18,6 @@ from typing import Any
 from nightwatch.agent.services import load_services, service_info
 from nightwatch.common.audit import AuditLog
 from nightwatch.common.incidents import IncidentStore
-from nightwatch.common.models import Incident
 
 COMMAND = "nw"
 MESSAGE, DEFERRED = 4, 5  # response types; DEFERRED shows "NightWatch is thinking..."
@@ -94,7 +93,7 @@ def ack(
     if not match:
         return private("Give an incident like `INC-12`.")
     number = int(match.group(1))
-    incident = _find(store, number, ("open",))
+    incident = store.find(number, ("open",))
     if incident is None:
         return private(f"INC-{number:03d} isn't open.")
     if user_id not in service_info(incident.service).approvers:
@@ -139,7 +138,7 @@ def update(
     if not match:
         return private("Give an incident like `INC-12`.")
     number = int(match.group(1))
-    incident = _find(store, number, ("open", "resolved"))
+    incident = store.find(number)
     if incident is None:
         return private(f"INC-{number:03d} isn't among the recent incidents.")
     if user_id not in service_info(incident.service).approvers:
@@ -156,16 +155,6 @@ def public(text: str) -> dict[str, Any]:
 
 def private(text: str) -> dict[str, Any]:
     return {"type": MESSAGE, "data": {"content": text, "flags": EPHEMERAL}}
-
-
-def _find(store: IncidentStore, number: int, statuses: tuple[str, ...]) -> Incident | None:
-    for status in statuses:
-        found = next(
-            (i for i in store.list_incidents(status, limit=50) if i.number == number), None
-        )
-        if found:
-            return found
-    return None
 
 
 def _only_service() -> str:

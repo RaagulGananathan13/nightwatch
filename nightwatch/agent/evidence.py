@@ -26,6 +26,19 @@ MAX_DATA_CHARS = 12_000
 MAX_SUMMARY_CHARS = 2_500
 
 
+def load_evidence(store: IncidentStore, incident_id: str) -> list[Evidence]:
+    """Everything gathered for an incident, in order: E1, E2, ..."""
+    reply = store.client.query(
+        TableName=store.table,
+        KeyConditionExpression="PK = :pk AND begins_with(SK, :ev)",
+        ExpressionAttributeValues={
+            ":pk": {"S": f"TENANT#{store.tenant}#INC#{incident_id}"},
+            ":ev": {"S": "EV#"},
+        },
+    )
+    return [Evidence.model_validate_json(item["json"]["S"]) for item in reply.get("Items", [])]
+
+
 class EvidenceLedger:
     def __init__(
         self,

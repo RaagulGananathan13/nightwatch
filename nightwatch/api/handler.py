@@ -23,7 +23,7 @@ from typing import Any
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 
-from nightwatch.agent.models import Evidence
+from nightwatch.agent.evidence import load_evidence
 from nightwatch.agent.services import load_services
 from nightwatch.api.auth import AuthError, User, Verifier
 from nightwatch.common.audit import AuditLog
@@ -124,18 +124,7 @@ def incident_detail(settings: Settings, store: IncidentStore, incident_id: str) 
         {k: alert.get(k) for k in ("alarm_name", "state", "severity", "occurred_at", "reason")}
         for alert in store.alerts(incident_id)
     ]
-    evidence_items = store.client.query(
-        TableName=store.table,
-        KeyConditionExpression="PK = :pk AND begins_with(SK, :ev)",
-        ExpressionAttributeValues={
-            ":pk": {"S": f"TENANT#{store.tenant}#INC#{incident_id}"},
-            ":ev": {"S": "EV#"},
-        },
-    ).get("Items", [])
-    evidence = [
-        Evidence.model_validate_json(item["json"]["S"]).model_dump(mode="json")
-        for item in evidence_items
-    ]
+    evidence = [item.model_dump(mode="json") for item in load_evidence(store, incident_id)]
     timeline = AuditLog(settings.table_name, settings.tenant_id, "api").for_incident(incident_id)
     actions = ActionStore(settings.table_name, settings.tenant_id).for_incident(incident_id)
     return reply(

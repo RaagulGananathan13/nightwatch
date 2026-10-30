@@ -110,6 +110,18 @@ class IncidentStore:
         )
         return [_incident(_plain(item)) for item in response.get("Items", [])]
 
+    def find(
+        self, number: int, statuses: tuple[str, ...] = ("open", "resolved")
+    ) -> Incident | None:
+        """INC-<number> among the 50 newest incidents of each status."""
+        for status in statuses:
+            found = next(
+                (i for i in self.list_incidents(status, limit=50) if i.number == number), None
+            )
+            if found:
+                return found
+        return None
+
     def alerts(self, incident_id: str) -> list[dict[str, Any]]:
         """Every alert on an incident, oldest first."""
         response = self.client.query(
