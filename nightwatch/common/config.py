@@ -40,6 +40,10 @@ class Settings:
     postmortem_bucket: str = ""
     postmortem_function: str = ""  # empty: no postmortems
     ask_function: str = ""  # empty: /nw ask is off
+    # Phase 7: the dashboard API checks Cognito tokens from this user pool and app client.
+    aws_region: str = "us-east-2"
+    dashboard_pool_id: str = ""
+    dashboard_client_param: str = "/nightwatch/dashboard/client_id"
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> Settings:
@@ -64,4 +68,9 @@ class Settings:
             postmortem_bucket=env.get("POSTMORTEM_BUCKET", ""),
             postmortem_function=env.get("POSTMORTEM_FUNCTION", ""),
             ask_function=env.get("ASK_FUNCTION", ""),
+            aws_region=env.get("AWS_REGION", "us-east-2"),
+            dashboard_pool_id=env.get("DASHBOARD_POOL_ID", ""),
+            dashboard_client_param=env.get(
+                "DASHBOARD_CLIENT_PARAM", "/nightwatch/dashboard/client_id"
+            ),
         )
