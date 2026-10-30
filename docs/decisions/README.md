@@ -25,5 +25,6 @@ true $0 per month or to close a gap found while reviewing the spec.
 | [0017](0017-alert-quality-coach.md) | The alert-quality coach: a noise score anyone can check | Accepted |
 | [0018](0018-predictive-warnings.md) | Predictive warnings: straight-line trends against known limits | Accepted |
 | [0019](0019-stakeholder-updates.md) | Stakeholder updates: drafted by NightWatch, published by a person | Accepted |
+| [0020](0020-mcp-server.md) | The MCP server: NightWatch's evidence in your own AI assistant | Accepted |
 
 New records copy the layout of an existing one: Context, Decision, Consequences.
