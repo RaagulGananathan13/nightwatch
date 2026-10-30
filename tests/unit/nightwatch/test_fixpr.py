@@ -169,12 +169,18 @@ def lambda_env(store: IncidentStore, monkeypatch: pytest.MonkeyPatch) -> dict[st
     monkeypatch.setattr(fixpr, "_aws", type("A", (), {"ssm": boto3.client("ssm")})())
     opened: list[dict[str, Any]] = []
 
+    files = {"capacity": 5}
+
     class StubGitHub:
+        """A repository whose variables.tf provisions files["capacity"] read units."""
+
         def __init__(self, token: str, repository: str) -> None:
             assert repository == "RaagulGananathan13/nightwatch"
 
         def file(self, path: str) -> tuple[str, str]:
-            return (REPO / path).read_text(encoding="utf-8"), "blob"
+            assert path == "infra/modules/shoplite/variables.tf"
+            text = f'variable "read_capacity" {{\n  type        = number\n  default     = {files["capacity"]}\n}}\n'
+            return text, "blob"
 
         def open_pull_request(self, **kwargs: Any) -> str:
             opened.append(kwargs)
@@ -200,7 +206,7 @@ def lambda_env(store: IncidentStore, monkeypatch: pytest.MonkeyPatch) -> dict[st
             "evidence": [{"id": "E3", "brief": "no changes"}],
         },
     )
-    return {"store": store, "incident": incident, "opened": opened}
+    return {"store": store, "incident": incident, "opened": opened, "files": files}
 
 
 def test_fix_pr_lambda_opens_a_reviewed_change(lambda_env: dict[str, Any]) -> None:
@@ -209,23 +215,20 @@ def test_fix_pr_lambda_opens_a_reviewed_change(lambda_env: dict[str, Any]) -> No
     assert out["opened"] is True
     (request,) = lambda_env["opened"]
     assert request["branch"] == "nightwatch/inc-001-read-capacity"
-    now = read_value(
-        (REPO / "infra/modules/shoplite/variables.tf").read_text("utf-8"),
-        SHOPLITE.terraform["read_capacity"],
-    )
-    after = proposal(now, SHOPLITE.terraform["read_capacity"])
-    if after > now:
-        assert (
-            request["title"]
-            == f"Raise shoplite read capacity from {now} to {after} read units (INC-001)"
-        )
-        assert f"  default     = {after}" in request["text"]
+    assert request["title"] == "Raise shoplite read capacity from 5 to 10 read units (INC-001)"
+    assert "  default     = 10" in request["text"]
     body = request["body"]
     assert "&#64;everyone" in body
     assert "@" not in body
     assert "<b>" not in body
     assert "**E3**: no changes" in body
     assert lambda_env["store"].get_incident(incident.id).fix_pr_url.endswith("/pull/42")
+
+
+def test_no_pull_request_at_the_ceiling(lambda_env: dict[str, Any]) -> None:
+    lambda_env["files"]["capacity"] = 10  # the catalogue's max for read_capacity
+    assert fixpr.handler({"incident_id": lambda_env["incident"].id}, None)["opened"] is False
+    assert lambda_env["opened"] == []
 
 
 def test_no_pull_request_while_the_kill_switch_is_on(lambda_env: dict[str, Any]) -> None:
