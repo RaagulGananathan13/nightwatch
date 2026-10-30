@@ -22,5 +22,6 @@ true $0 per month or to close a gap found while reviewing the spec.
 | [0014](0014-memory-postmortems-chatops.md) | Incident memory, postmortems and ChatOps | Accepted |
 | [0015](0015-dashboard.md) | The web dashboard: CloudFront, private S3, Cognito and a read-only API | Accepted |
 | [0016](0016-fix-as-pull-request.md) | Fix-as-pull-request: Terraform changes for settings that are too small | Accepted |
+| [0017](0017-alert-quality-coach.md) | The alert-quality coach: a noise score anyone can check | Accepted |
 
 New records copy the layout of an existing one: Context, Decision, Consequences.
