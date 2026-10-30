@@ -1,1 +1,1 @@
-"""Alert quality coach: per-alarm noise scores and tuning suggestions (F11)."""
+"""The alert-quality coach (spec F11): which alarms are noise, and how to tune them."""
