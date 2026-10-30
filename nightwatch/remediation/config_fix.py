@@ -14,7 +14,7 @@ text. Each setting must be listed in the service's ``terraform`` catalogue, with
 from __future__ import annotations
 
 import re
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from nightwatch.agent.models import Evidence
@@ -29,13 +29,28 @@ class ConfigFix:
     knob: str  # a key of the service's terraform catalogue
     reason: str
     evidence_ids: list[str]
+    quotes: dict[str, str] = field(default_factory=dict)  # what each cited item found
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
+def quote(item: Evidence, lines: int = 3) -> str:
+    """The findings of an evidence item: its lines after the heading, a few of them."""
+    body = [line.strip() for line in item.summary.splitlines()[1:] if line.strip()]
+    return " · ".join((body or [item.summary.strip()])[:lines])[:400]
+
+
 def detect(evidence: list[Evidence], incident: Incident, service: ServiceInfo) -> ConfigFix | None:
     """A Terraform setting the evidence shows is too small, if nothing else explains it."""
+    fix = _detect(evidence, incident, service)
+    if fix is None:
+        return None
+    cited = {item.id: quote(item) for item in evidence if item.id in fix.evidence_ids}
+    return ConfigFix(fix.knob, fix.reason, fix.evidence_ids, cited)
+
+
+def _detect(evidence: list[Evidence], incident: Incident, service: ServiceInfo) -> ConfigFix | None:
     found = {item.label: item for item in evidence if item.ok and item.label}
     changes = _data(found.get("changes"))
     kinds = {str(change.get("kind")) for change in changes.get("changes", [])}
