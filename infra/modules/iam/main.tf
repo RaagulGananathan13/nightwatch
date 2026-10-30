@@ -217,8 +217,20 @@ data "aws_iam_policy_document" "plan" {
   }
 
   statement {
-    sid       = "ReadDashboardCdn" # CloudFront and its managed policies are account-wide
-    actions   = ["cloudfront:Get*", "cloudfront:List*"]
+    sid       = "ReadDashboardCdn"
+    actions   = ["cloudfront:Get*", "cloudfront:ListTagsForResource"]
+    resources = ["arn:aws:cloudfront::${local.account}:*"]
+  }
+
+  statement {
+    sid = "ListDashboardCdn" # these list calls have no resource-level permissions
+    actions = [
+      "cloudfront:ListCachePolicies",
+      "cloudfront:ListDistributions",
+      "cloudfront:ListOriginAccessControls",
+      "cloudfront:ListOriginRequestPolicies",
+      "cloudfront:ListResponseHeadersPolicies",
+    ]
     resources = ["*"]
   }
 
