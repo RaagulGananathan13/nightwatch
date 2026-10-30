@@ -11,7 +11,7 @@ variable "boundary_policy_arn" {
 variable "read_capacity" {
   description = "Provisioned read capacity for the shoplite table (counts toward the 25-unit free tier)."
   type        = number
-  default     = 5
+  default     = 10
 }
 
 variable "write_capacity" {
