@@ -117,6 +117,21 @@ def webhook_from_ssm(param: str, secret: Callable[[str], str]) -> DiscordWebhook
     return DiscordWebhook(secret(param)) if param else None
 
 
+class InteractionReply(_Client):
+    """Edits the reply to a slash command. The URL carries the interaction's token, a secret
+    that Discord accepts for 15 minutes, so no bot token is needed."""
+
+    def __init__(self, application_id: str, token: str, **options: Any) -> None:
+        super().__init__(**options)
+        _check_id(application_id)
+        if not re.fullmatch(r"[\w.-]{20,500}", token):
+            raise ValueError("that is not an interaction token")
+        self._url = f"{API}/webhooks/{application_id}/{token}/messages/@original"
+
+    def edit(self, message: dict[str, Any]) -> None:
+        self._call("PATCH", self._url, _without_buttons(message))
+
+
 def bot_from_ssm(param: str, channel_id: str, secret: Callable[[str], str]) -> DiscordBot | None:
     """The bot whose token is stored in SSM at ``param``. None when approvals are off."""
     return DiscordBot(secret(param), channel_id) if param and channel_id else None

@@ -9,8 +9,11 @@ Then the click itself is checked: the button must name a real action that is sti
 and the person clicking must be one of the service's approvers. Only then does the workflow
 resume, through the task token stored on the action.
 
+Slash commands (``/nw status``, ``/nw ack``, ``/nw ask``) arrive here too, after the same
+signature check, and are handled in ``commands.py``.
+
 Discord wants an answer within 3 seconds, so this only makes a few DynamoDB calls and one
-Step Functions call.
+Step Functions or Lambda call.
 """
 
 from __future__ import annotations
@@ -30,6 +33,7 @@ from nacl.signing import VerifyKey
 
 from nightwatch.agent.services import service_info
 from nightwatch.chat.cards import approval_message
+from nightwatch.chat.commands import command
 from nightwatch.common.audit import AuditLog
 from nightwatch.common.config import Settings
 from nightwatch.common.incidents import IncidentStore
@@ -38,9 +42,10 @@ from nightwatch.common.timeutil import utcnow
 from nightwatch.remediation.actions import ActionStore, TransitionError
 
 if TYPE_CHECKING:
+    from mypy_boto3_lambda import LambdaClient
     from mypy_boto3_stepfunctions import SFNClient
 
-PING, COMPONENT = 1, 3  # interaction types
+PING, SLASH_COMMAND, COMPONENT = 1, 2, 3  # interaction types
 PONG, MESSAGE, UPDATE_MESSAGE = 1, 4, 7  # response types
 EPHEMERAL = 64  # only the person who clicked sees the reply
 REPLAY_WINDOW_SECONDS = 300
@@ -50,6 +55,11 @@ _CUSTOM_ID = re.compile(r"^nw:(approve|reject):([0-9A-Z]{26}):([0-9A-Z]{26})$")
 @cache
 def _states() -> SFNClient:
     return boto3.client("stepfunctions")
+
+
+@cache
+def _lambda() -> LambdaClient:
+    return boto3.client("lambda")
 
 
 def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
@@ -68,12 +78,33 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     interaction = json.loads(body)
     if interaction.get("type") == PING:
         return _http(200, {"type": PONG})
-    if interaction.get("type") != COMPONENT:
-        return _http(200, _private("NightWatch only handles its own buttons."))
-    actions = ActionStore(settings.table_name, settings.tenant_id)
     audit = AuditLog(settings.table_name, settings.tenant_id, actor="nightwatch-interactions")
     store = IncidentStore(settings.table_name, settings.tenant_id)
+    if interaction.get("type") == SLASH_COMMAND:
+        return _http(200, command(interaction, store, audit, utcnow(), _asker(settings)))
+    if interaction.get("type") != COMPONENT:
+        return _http(200, _private("NightWatch only handles its own buttons and commands."))
+    actions = ActionStore(settings.table_name, settings.tenant_id)
     return _http(200, click(interaction, actions, store, audit, utcnow()))
+
+
+def _asker(settings: Settings) -> Any:
+    """Starts the ask Lambda without waiting. False when /nw ask is off or it can't start."""
+
+    def start(job: dict[str, Any]) -> bool:
+        if not settings.ask_function:
+            return False
+        try:
+            _lambda().invoke(
+                FunctionName=settings.ask_function,
+                InvocationType="Event",
+                Payload=json.dumps(job).encode(),
+            )
+        except (BotoCoreError, ClientError):
+            return False
+        return True
+
+    return start
 
 
 def verify_signature(
