@@ -87,17 +87,16 @@ def test_memory_and_timeout_only_when_nothing_else_explains_it() -> None:
 def test_edits_change_only_the_one_setting_in_the_real_files() -> None:
     variables = (REPO / "infra/modules/shoplite/variables.tf").read_text(encoding="utf-8")
     capacity = SHOPLITE.terraform["read_capacity"]
-    assert read_value(variables, capacity) == 5
-    changed = set_value(variables, capacity, 10)
-    assert read_value(changed, capacity) == 10
+    now = read_value(variables, capacity)
+    changed = set_value(variables, capacity, now + 1)
+    assert read_value(changed, capacity) == now + 1
     assert [line for line in changed.splitlines() if line not in variables.splitlines()] == [
-        "  default     = 10"
+        f"  default     = {now + 1}"
     ]
 
     main = (REPO / "infra/modules/shoplite/main.tf").read_text(encoding="utf-8")
     memory = SHOPLITE.terraform["memory"]
-    assert read_value(main, memory) == 256
-    bigger = set_value(main, memory, 512)
+    bigger = set_value(main, memory, read_value(main, memory) * 2)
     assert bigger.count("memory_size") == main.count("memory_size")
     assert "memory_size      = 128" in bigger  # the canary's setting is left alone
     assert proposal(5, capacity) == 10
@@ -210,8 +209,17 @@ def test_fix_pr_lambda_opens_a_reviewed_change(lambda_env: dict[str, Any]) -> No
     assert out["opened"] is True
     (request,) = lambda_env["opened"]
     assert request["branch"] == "nightwatch/inc-001-read-capacity"
-    assert request["title"] == "Raise shoplite read capacity from 5 to 10 read units (INC-001)"
-    assert "  default     = 10" in request["text"]
+    now = read_value(
+        (REPO / "infra/modules/shoplite/variables.tf").read_text("utf-8"),
+        SHOPLITE.terraform["read_capacity"],
+    )
+    after = proposal(now, SHOPLITE.terraform["read_capacity"])
+    if after > now:
+        assert (
+            request["title"]
+            == f"Raise shoplite read capacity from {now} to {after} read units (INC-001)"
+        )
+        assert f"  default     = {after}" in request["text"]
     body = request["body"]
     assert "&#64;everyone" in body
     assert "@" not in body

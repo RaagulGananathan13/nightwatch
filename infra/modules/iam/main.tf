@@ -136,6 +136,7 @@ data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
 data "aws_iam_policy_document" "plan" {
+  #checkov:skip=CKV_AWS_356:CloudFront's managed cache, request and header policies belong to AWS, not this account, so reading them needs "*"
   # Reads only, and only on NightWatch's own resources (no "*" on anything that holds data).
   statement {
     sid = "ReadOwnResources"
@@ -165,6 +166,8 @@ data "aws_iam_policy_document" "plan" {
       "ssm:GetParameter",
       "ssm:ListTagsForResource",
       "states:Describe*",
+      "states:ListStateMachineAliases",
+      "states:ListStateMachineVersions",
       "states:ListTagsForResource",
     ]
     resources = concat(
@@ -220,6 +223,16 @@ data "aws_iam_policy_document" "plan" {
     sid       = "ReadDashboardCdn"
     actions   = ["cloudfront:Get*", "cloudfront:ListTagsForResource"]
     resources = ["arn:aws:cloudfront::${local.account}:*"]
+  }
+
+  statement {
+    sid = "ReadManagedCdnPolicies" # AWS's managed policies, which the dashboard uses by name
+    actions = [
+      "cloudfront:GetCachePolicy",
+      "cloudfront:GetOriginRequestPolicy",
+      "cloudfront:GetResponseHeadersPolicy",
+    ]
+    resources = ["*"]
   }
 
   statement {

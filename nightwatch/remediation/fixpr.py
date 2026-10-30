@@ -103,9 +103,10 @@ def pull_request_body(
     """The PR description. Incident text is untrusted, so it can't mention people or add HTML."""
     result = incident.investigation_result or {}
     diagnosis = result.get("diagnosis") or {}
-    evidence = {item.get("id"): item.get("brief") for item in result.get("evidence") or []}
+    briefs = {item.get("id"): item.get("brief") for item in result.get("evidence") or []}
+    found = {**briefs, **(fix.get("quotes") or {})}
     cited = [
-        f"- **{eid}**: {_quiet(str(evidence.get(eid, '')))}" for eid in fix.get("evidence_ids", [])
+        f"- **{eid}**: {_quiet(str(found.get(eid, '')))}" for eid in fix.get("evidence_ids", [])
     ]
     link = f"{dashboard_url.rstrip('/')}/#/incidents/{incident.id}" if dashboard_url else ""
     lines = [
