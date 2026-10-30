@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { type Config, currentTokens, finishSignIn, signOut, startSignIn } from "./auth.ts";
 import { Alarms } from "./pages/Alarms.tsx";
 import { Eval } from "./pages/Eval.tsx";
+import { Forecasts } from "./pages/Forecasts.tsx";
 import { Incident } from "./pages/Incident.tsx";
 import { Incidents } from "./pages/Incidents.tsx";
 import { Runbooks } from "./pages/Runbooks.tsx";
@@ -64,6 +65,7 @@ export function App() {
           {[
             ["incidents", "Incidents"],
             ["alarms", "Alarms"],
+            ["forecasts", "Forecasts"],
             ["eval", "Evaluation"],
             ["runbooks", "Runbooks"],
             ["settings", "Settings"],
@@ -81,6 +83,7 @@ export function App() {
         {page === "incidents" && id && <Incident id={id} focus={focus} token={token} />}
         {page === "incidents" && !id && <Incidents token={token} />}
         {page === "alarms" && <Alarms token={token} />}
+        {page === "forecasts" && <Forecasts token={token} />}
         {page === "eval" && <Eval />}
         {page === "runbooks" && <Runbooks token={token} />}
         {page === "settings" && <Settings token={token} />}
