@@ -61,3 +61,11 @@ invent them.
   deploys). That is realistic, because most production incidents follow a change. The test is
   whether the agent connects the right change to the symptom and names it.
 - A full run takes about 2.5 hours, mostly waiting out the flap window between incidents.
+- The first attempt failed in a useful way. It blamed the buggy commit on the previous
+  scenario's flag change: a 30-minute log window still held that scenario's errors, and they
+  outnumbered the new ones. It led to three changes:
+  - the first log queries now look back only 10 minutes before the incident;
+  - "what changed" also shows each flag's current value;
+  - the throttling load comes from the canary inside AWS, not over the operator's network.
+
+  The whole evaluation was then run again, and results files carry notes like this one.

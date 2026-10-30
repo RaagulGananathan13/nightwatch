@@ -12,13 +12,14 @@ always-free services and free LLM tiers.
 [![CI](https://github.com/RaagulGananathan13/nightwatch/actions/workflows/ci.yml/badge.svg)](https://github.com/RaagulGananathan13/nightwatch/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-> **Status: Phase 4 of 9 done.** NightWatch groups alarms into one incident per service, then an
+> **Status: Phase 5 of 9 done.** NightWatch groups alarms into one incident per service, then an
 > AI agent gathers evidence and posts a diagnosis that cites it. When the evidence matches a
 > reviewed runbook, it proposes the fix, and the fix runs only after a human clicks **Approve** in
-> Discord. Then it is verified. In a live test, the diagnosis named the exact bad commit 44 seconds
-> after the alarm, and the approved rollback was verified at 0 errors, all at $0. Next is the chaos
-> lab and evaluation harness (Phase 5). See the [roadmap](#roadmap) and the
-> [infrastructure guide](infra/README.md).
+> Discord. Then it is verified. In an evaluation on 7 real injected faults, NightWatch named the
+> root cause of **all 7**. Its diagnosis reached Discord a mean **46 seconds** after the alarm,
+> every cited fact checked out against the evidence, and it proposed the right fix every time,
+> all at $0 ([results](eval/results.md)). Next are incident memory, postmortems and ChatOps
+> (Phase 6). See the [roadmap](#roadmap) and the [infrastructure guide](infra/README.md).
 
 ## How it works
 
@@ -68,7 +69,7 @@ Phase 9 is tagged `v1.0`.
 | 2 | Alert ingest, incident dedupe, Discord notifications, first chaos script | Done |
 | 3 | Investigation agent, evidence ledger, hallucination guard | Done |
 | 4 | Runbooks, approval buttons, remediation, audit log, kill switch | Done |
-| 5 | Chaos lab and evaluation harness (accuracy, time to diagnosis) | Planned |
+| 5 | Chaos lab and evaluation harness (accuracy, time to diagnosis) | Done |
 | 6 | Incident memory, auto-revert, postmortems, ChatOps commands | Planned |
 | 7 | Web dashboard (React and Cognito) | Planned |
 | 8 | Fix-as-PR, alert-noise coach, predictions, status page, MCP server, cost guardian | Planned |
@@ -138,8 +139,35 @@ own fix if things got worse. **Reject** changes nothing. Setting `/nightwatch/ki
 
 ### Measured so far
 
-Real runs against the deployed stack on 2026-10-28. Full evaluation numbers arrive with the
-Phase 5 harness.
+**Evaluation, Phase 5 (2026-10-29, `make eval`).** Seven real faults were injected into ShopLite,
+one after another. Each was scored against its written ground truth
+([full results](eval/results.md), [method](docs/decisions/0013-evaluating-nightwatch.md)):
+
+| Metric | Result |
+|---|---|
+| Top-1 root-cause accuracy | **7/7** |
+| Mean time to diagnosis (alarm → diagnosis in Discord) | **46 s** |
+| Mean time from fault to diagnosis | 2 min 01 s |
+| Evidence validity (hypotheses whose cited facts the guard verified) | **11/11** |
+| Right fix proposed | 7/7 |
+| Alerts grouped into incidents | 17 → 7 |
+| LLM use per incident | 1 call, about 3,500 tokens |
+
+The faults were:
+- an error flag;
+- a buggy commit;
+- a slow dependency;
+- a Lambda timeout;
+- memory exhaustion;
+- DynamoDB throttling after a capacity cut;
+- a broken environment variable.
+
+Each ran once, so treat these as a first measurement, not a benchmark. A first attempt, stopped
+after 2 scenarios, misdiagnosed the buggy commit. A 30-minute log window still held the previous
+scenario's errors, so the model blamed that scenario's flag instead. That was fixed and the whole
+evaluation was run again. Every top hypothesis is quoted word for word in the results.
+
+Earlier runs against the deployed stack, from 2026-10-28:
 
 | Run | Fault start → incident + Discord message | Alarms grouped | Messages posted |
 |---|---|---|---|
