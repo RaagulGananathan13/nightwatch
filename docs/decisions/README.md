@@ -20,5 +20,6 @@ true $0 per month or to close a gap found while reviewing the spec.
 | [0012](0012-approval-gated-remediation.md) | Approval-gated remediation: runbooks, Discord buttons and verification | Accepted |
 | [0013](0013-evaluating-nightwatch.md) | How NightWatch is evaluated | Accepted |
 | [0014](0014-memory-postmortems-chatops.md) | Incident memory, postmortems and ChatOps | Accepted |
+| [0015](0015-dashboard.md) | The web dashboard: CloudFront, private S3, Cognito and a read-only API | Accepted |
 
 New records copy the layout of an existing one: Context, Decision, Consequences.
