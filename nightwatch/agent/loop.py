@@ -175,6 +175,8 @@ def initial_plan(ctx: ToolContext) -> list[tuple[str, dict[str, Any], str]]:
         steps.append(("get_metric_series", metric, "metric"))
     if service.lambda_functions:
         steps.append(("describe_resource", {"name": service.lambda_functions[0]}, "resource"))
+    if service.dynamodb_tables:  # its provisioned capacity, next to any throttling
+        steps.append(("describe_resource", {"name": service.dynamodb_tables[0]}, "table"))
     # Last, so the search can use what the evidence shows (Investigator.run fills the text).
     steps.append(("search_similar_incidents", {"text": incident.title}, "similar"))
     return steps

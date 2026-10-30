@@ -30,6 +30,7 @@ from nightwatch.common.secrets import SecretCache
 from nightwatch.common.timeutil import utcnow
 from nightwatch.remediation.actions import Action, ActionStore
 from nightwatch.remediation.calls import CallError, describe
+from nightwatch.remediation.config_fix import detect
 from nightwatch.remediation.planner import plan
 
 _secrets = SecretCache()
@@ -69,6 +70,10 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         Budget(seconds=settings.investigation_seconds),
     ).run()
 
+    found = detect(ledger.items, incident, ctx.service)
+    if found:
+        result = result.model_copy(update={"config_fix": found.as_dict()})
+        audit.record("config_fix_found", incident_id, knob=found.knob, reason=found.reason)
     store.set_investigation(incident_id, "done", result.model_dump(mode="json"))
     top = result.diagnosis.hypotheses[0]
     audit.record(
@@ -96,7 +101,12 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     action = propose_fix(
         ctx, ledger.items, result, ActionStore(settings.table_name, settings.tenant_id), audit
     )
-    return {"incident_id": incident_id, "method": result.method, "action": action}
+    return {
+        "incident_id": incident_id,
+        "method": result.method,
+        "action": action,
+        "config_fix": found is not None,
+    }
 
 
 def propose_fix(

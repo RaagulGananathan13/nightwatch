@@ -61,6 +61,8 @@ def incident_message(incident: Incident, now: datetime) -> dict[str, Any]:
         )
     if incident.postmortem_key:
         fields.append({"name": "Postmortem", "value": f"`{_clean(incident.postmortem_key)}`"})
+    if incident.fix_pr_url:
+        fields.append({"name": "Fix pull request", "value": _limit(incident.fix_pr_url, 300)})
     embed = {
         "title": _limit(f"{label} · {service}", 256),
         "description": _limit(_clean(incident.title), 400),

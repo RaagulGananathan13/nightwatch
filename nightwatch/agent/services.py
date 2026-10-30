@@ -11,6 +11,15 @@ from pydantic import BaseModel, Field
 CATALOGUE = Path(__file__).resolve().parents[1] / "services.yaml"
 
 
+class Knob(BaseModel):
+    """One Terraform setting a fix PR may raise (spec F10): where it is, and its ceiling."""
+
+    file: str = Field(pattern=r"^infra/[\w./-]+\.tf$")
+    block: str  # the top-level block's first line, e.g. 'variable "read_capacity"'
+    attribute: str = Field(pattern=r"^\w+$")
+    max: int = Field(gt=0)
+
+
 class ServiceInfo(BaseModel):
     name: str
     description: str = ""
@@ -25,6 +34,7 @@ class ServiceInfo(BaseModel):
     deploys: str = ""
     runbooks: list[str] = Field(default_factory=list)  # fixes NightWatch may propose
     approvers: list[str] = Field(default_factory=list)  # Discord user ids who may approve them
+    terraform: dict[str, Knob] = Field(default_factory=dict)  # settings a fix PR may raise
 
     @property
     def resources(self) -> set[str]:

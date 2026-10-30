@@ -76,6 +76,7 @@ class Incident(BaseModel):
     acked_by: str | None = None  # Discord user id, from /nw ack (spec F9)
     acked_by_name: str | None = None
     acked_at: datetime | None = None
+    fix_pr_url: str | None = None  # the Terraform pull request NightWatch opened (spec F10)
 
     @property
     def label(self) -> str:

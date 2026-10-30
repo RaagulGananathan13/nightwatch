@@ -44,6 +44,9 @@ class Settings:
     aws_region: str = "us-east-2"
     dashboard_pool_id: str = ""
     dashboard_client_param: str = "/nightwatch/dashboard/client_id"
+    # Phase 8 (F10): fix pull requests. The token is fine-grained, for this repository only.
+    github_token_param: str = "/nightwatch/github/token"  # noqa: S105  # nosec B105 - a name
+    dashboard_url_param: str = "/nightwatch/dashboard/url"
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> Settings:
@@ -73,4 +76,6 @@ class Settings:
             dashboard_client_param=env.get(
                 "DASHBOARD_CLIENT_PARAM", "/nightwatch/dashboard/client_id"
             ),
+            github_token_param=env.get("GITHUB_TOKEN_PARAM", "/nightwatch/github/token"),
+            dashboard_url_param=env.get("DASHBOARD_URL_PARAM", "/nightwatch/dashboard/url"),
         )

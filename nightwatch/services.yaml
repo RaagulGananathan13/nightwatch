@@ -19,3 +19,21 @@ services:
     runbooks: [rollback-lambda-alias, reset-feature-flags, reset-lambda-concurrency, raise-dynamodb-capacity]
     # Discord user ids allowed to approve or reject those fixes.
     approvers: ["1048648983599403058"]
+    # Terraform settings NightWatch may propose raising in a pull request (spec F10), and the
+    # most it may ask for. read_capacity stays well inside the 25-unit free tier.
+    terraform:
+      read_capacity:
+        file: infra/modules/shoplite/variables.tf
+        block: variable "read_capacity"
+        attribute: default
+        max: 10
+      memory:
+        file: infra/modules/shoplite/main.tf
+        block: resource "aws_lambda_function" "api"
+        attribute: memory_size
+        max: 1024
+      timeout:
+        file: infra/modules/shoplite/main.tf
+        block: resource "aws_lambda_function" "api"
+        attribute: timeout
+        max: 30

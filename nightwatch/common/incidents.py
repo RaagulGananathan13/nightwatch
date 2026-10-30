@@ -323,6 +323,15 @@ class IncidentStore:
             ExpressionAttributeValues={":k": _s(key)},
         )
 
+    def set_fix_pr(self, incident_id: str, url: str) -> None:
+        self.client.update_item(
+            TableName=self.table,
+            Key=self._key(f"INC#{incident_id}"),
+            UpdateExpression="SET fix_pr_url = :u",
+            ConditionExpression="attribute_exists(PK)",
+            ExpressionAttributeValues={":u": _s(url)},
+        )
+
     def acknowledge(self, incident_id: str, user_id: str, user_name: str, now: datetime) -> bool:
         """Record who took an open incident. False if it isn't open or someone already has."""
         try:
