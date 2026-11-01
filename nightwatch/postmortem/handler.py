@@ -22,6 +22,8 @@ from nightwatch.agent.providers.base import LLMError, LLMUnavailableError
 from nightwatch.agent.providers.chain import DailyBudget
 from nightwatch.chat.cards import incident_message
 from nightwatch.chat.discord import DiscordError, webhook_from_ssm
+from nightwatch.chat.slack import bot_from_ssm as slack_bot
+from nightwatch.chat.slack import show_incident
 from nightwatch.common.audit import AuditLog
 from nightwatch.common.config import Settings
 from nightwatch.common.incidents import IncidentStore
@@ -101,10 +103,15 @@ def _lessons(settings: Settings, facts: Facts) -> Lessons | None:
 
 def _show_on_discord(settings: Settings, store: IncidentStore, incident_id: str) -> None:
     incident = store.get_incident(incident_id)
+    if incident is None:
+        return
+    message = incident_message(incident, utcnow())
+    slack = slack_bot(settings.slack_bot_token_param, settings.slack_channel_id, _secrets.get)
+    show_incident(slack, store, incident, message, create=False)
     hook = webhook_from_ssm(settings.discord_webhook_param, _secrets.get)
-    if incident is None or hook is None or not incident.discord_message_id:
+    if hook is None or not incident.discord_message_id:
         return
     try:
-        hook.edit(incident.discord_message_id, incident_message(incident, utcnow()))
+        hook.edit(incident.discord_message_id, message)
     except (DiscordError, BotoCoreError, ClientError) as exc:  # the postmortem is still in S3
         emit("WARNING", "could not update the Discord message", error=str(exc)[:200])

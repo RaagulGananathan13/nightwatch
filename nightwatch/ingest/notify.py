@@ -14,6 +14,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 from nightwatch.chat.cards import incident_message
 from nightwatch.chat.discord import DiscordError, DiscordWebhook
+from nightwatch.chat.slack import SlackBot, show_incident
 from nightwatch.common.audit import AuditLog
 from nightwatch.common.incidents import IncidentStore
 from nightwatch.common.log import emit
@@ -27,10 +28,12 @@ def notify(
     audit: AuditLog,
     webhook: Callable[[], DiscordWebhook | None],
     now: datetime,
+    slack: Callable[[], SlackBot | None] = lambda: None,
 ) -> None:
     incident = outcome.incident
     if incident is None or outcome.kind in ("duplicate", "ignored"):
         return
+    _to_slack(outcome, store, slack, now)
     try:
         hook = webhook()
         if hook is None:
@@ -49,6 +52,24 @@ def notify(
     except (DiscordError, BotoCoreError, ClientError, ValueError, KeyError) as exc:
         emit("ERROR", "notification failed", incident=incident.label, error=str(exc)[:200])
         audit.record("notification_failed", incident.id, error=str(exc)[:200])
+
+
+def _to_slack(
+    outcome: Outcome, store: IncidentStore, slack: Callable[[], SlackBot | None], now: datetime
+) -> None:
+    """The same card in Slack. Only an opened incident posts one; the rest update it."""
+    incident = outcome.incident
+    if incident is None:
+        return
+    try:
+        bot = slack()
+    except (BotoCoreError, ClientError, ValueError) as exc:
+        emit("WARNING", "Slack is set up wrongly", error=str(exc)[:200])
+        return
+    latest = store.get_incident(incident.id) or incident
+    show_incident(
+        bot, store, latest, incident_message(latest, now), create=outcome.kind == "opened"
+    )
 
 
 def _changed(latest: Incident, shown: Incident) -> bool:

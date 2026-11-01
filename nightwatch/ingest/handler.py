@@ -17,6 +17,8 @@ import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 
 from nightwatch.chat.discord import DiscordWebhook, webhook_from_ssm
+from nightwatch.chat.slack import SlackBot
+from nightwatch.chat.slack import bot_from_ssm as slack_bot
 from nightwatch.common.audit import AuditLog
 from nightwatch.common.config import Settings
 from nightwatch.common.incidents import IncidentStore
@@ -90,7 +92,7 @@ def process(alert: Alert, settings: Settings, actor: str = "nightwatch-ingest") 
         state=alert.state,
         detail=outcome.detail or None,
     )
-    notify(outcome, store, audit, lambda: _webhook(settings), now)
+    notify(outcome, store, audit, lambda: _webhook(settings), now, lambda: _slack(settings))
     if outcome.kind == "opened" and outcome.incident is not None:
         start_investigation(settings, outcome.incident, audit)
     resolved = outcome.kind == "resolved" and outcome.incident is not None
@@ -142,6 +144,10 @@ def alarm_tags(arn: str) -> dict[str, str]:
 
 def _webhook(settings: Settings) -> DiscordWebhook | None:
     return webhook_from_ssm(settings.discord_webhook_param, _secrets.get)
+
+
+def _slack(settings: Settings) -> SlackBot | None:
+    return slack_bot(settings.slack_bot_token_param, settings.slack_channel_id, _secrets.get)
 
 
 @cache

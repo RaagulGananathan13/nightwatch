@@ -23,6 +23,8 @@ from nightwatch.agent.services import service_info
 from nightwatch.agent.tools import AwsClients
 from nightwatch.chat.cards import approval_message, escalation_message, incident_message
 from nightwatch.chat.discord import DiscordBot, DiscordWebhook, bot_from_ssm, webhook_from_ssm
+from nightwatch.chat.slack import SlackBot, SlackError, show_incident
+from nightwatch.chat.slack import bot_from_ssm as slack_bot
 from nightwatch.common.audit import AuditLog
 from nightwatch.common.config import Settings
 from nightwatch.common.incidents import IncidentStore
@@ -84,9 +86,9 @@ def _request_approval(
     blocked = None
     if kill_switch_on(_aws, settings.kill_switch_param):
         blocked = "The kill switch is on."
-    elif chat.bot is None:
-        blocked = "No Discord bot is set up to ask for approval."
-    elif not chat.approvers:
+    elif chat.bot is None and chat.slack is None:
+        blocked = "No Discord bot or Slack app is set up to ask for approval."
+    elif not chat.approvers and not chat.slack_approvers:
         blocked = f"{action.service} has no approvers in services.yaml."
     if blocked:
         action = chat.actions.transition(
@@ -125,11 +127,7 @@ def _expire(chat: _Chat, action: Action, audit: AuditLog) -> Action:
         )
     chat.show(action)
     if action.status == "expired":
-        if chat.bot:
-            chat.bot.send(
-                escalation_message(action, chat.incident, chat.approvers),
-                reply_to=chat.incident.discord_message_id,
-            )
+        chat.escalate(action)
         audit.record("approval_expired", action.incident_id, action_id=action.id)
     return action
 
@@ -154,10 +152,13 @@ class _Chat:
     def __init__(self, settings: Settings, actions: ActionStore, incident: Incident) -> None:
         self.actions = actions
         self.incident = incident
-        self.approvers = service_info(incident.service).approvers
+        service = service_info(incident.service)
+        self.approvers = service.approvers
+        self.slack_approvers = service.slack_approvers
         self.bot: DiscordBot | None = bot_from_ssm(
             settings.discord_bot_token_param, settings.discord_channel_id, _secrets.get
         )
+        self.slack = _slack(settings)
         self._settings = settings
 
     def show(self, action: Action) -> Action:
@@ -172,10 +173,46 @@ class _Chat:
             hook = self._webhook()
             if hook:
                 hook.send(message)
+        return self._show_in_slack(action, message)
+
+    def _show_in_slack(self, action: Action, message: dict[str, Any]) -> Action:
+        """The same card in the incident's Slack thread, pinging Slack approvers while it waits."""
+        if self.slack is None:
+            return action
+        pings = self.slack_approvers if action.status == "awaiting_approval" else []
+        try:
+            if action.slack_ts:
+                self.slack.edit(action.slack_ts, message, pings)
+            else:
+                ts = self.slack.send(message, thread=self.incident.slack_ts, pings=pings)
+                action = self.actions.transition(action, ALL, slack_ts=ts)
+        except SlackError as exc:
+            emit("WARNING", "Slack approval card failed", error=str(exc)[:200])
         return action
+
+    def escalate(self, action: Action) -> None:
+        """Nobody approved in time: say so in each chat, pinging the approvers again."""
+        if self.bot:
+            self.bot.send(
+                escalation_message(action, self.incident, self.approvers),
+                reply_to=self.incident.discord_message_id,
+            )
+        if self.slack:
+            try:
+                self.slack.send(
+                    escalation_message(action, self.incident, []),
+                    thread=self.incident.slack_ts,
+                    pings=self.slack_approvers,
+                )
+            except SlackError as exc:
+                emit("WARNING", "Slack escalation failed", error=str(exc)[:200])
 
     def _webhook(self) -> DiscordWebhook | None:
         return webhook_from_ssm(self._settings.discord_webhook_param, _secrets.get)
+
+
+def _slack(settings: Settings) -> SlackBot | None:
+    return slack_bot(settings.slack_bot_token_param, settings.slack_channel_id, _secrets.get)
 
 
 def _diagnosis(event: dict[str, Any], settings: Settings) -> dict[str, Any]:
@@ -192,11 +229,12 @@ def _diagnosis(event: dict[str, Any], settings: Settings) -> dict[str, Any]:
     incident = store.get_incident(incident_id)
     if incident is None:
         raise ValueError(f"incident {incident_id} not found")
+    message = incident_message(incident, utcnow())
+    show_incident(_slack(settings), store, incident, message)
     hook = webhook_from_ssm(settings.discord_webhook_param, _secrets.get)
     if hook is None:
         return {"incident_id": incident_id, "posted": False}
 
-    message = incident_message(incident, utcnow())
     if incident.discord_message_id:
         hook.edit(incident.discord_message_id, message)
     else:  # the first post failed earlier; post now
