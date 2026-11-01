@@ -129,3 +129,9 @@ variable "mcp_users" {
   description = "IAM user or role ARNs that may run the MCP server (switch to nightwatch-mcp)"
   type        = list(string)
 }
+
+variable "slack_channel_id" {
+  description = "Slack channel for incident cards (#incidents), e.g. C0123ABCD. Empty: Slack is off."
+  type        = string
+  default     = ""
+}

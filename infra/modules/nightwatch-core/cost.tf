@@ -69,9 +69,12 @@ data "aws_iam_policy_document" "cost" {
   }
 
   statement {
-    sid       = "ReadDiscordWebhook"
-    actions   = ["ssm:GetParameter"]
-    resources = ["arn:aws:ssm:${local.region}:${local.account}:parameter${var.discord_webhook_param}"]
+    sid     = "ReadDiscordWebhook"
+    actions = ["ssm:GetParameter"]
+    resources = [
+      "arn:aws:ssm:${local.region}:${local.account}:parameter${var.discord_webhook_param}",
+      local.slack_token_arn,
+    ]
   }
 
   statement {
@@ -132,6 +135,8 @@ resource "aws_lambda_function" "cost" {
       FLAP_WINDOW_MINUTES   = tostring(var.flap_window_minutes)
       STATE_MACHINE_ARN     = aws_sfn_state_machine.incident.arn
       POSTMORTEM_FUNCTION   = aws_lambda_function.postmortem.function_name
+      SLACK_BOT_TOKEN_PARAM = local.slack_token_param
+      SLACK_CHANNEL_ID      = var.slack_channel_id
     }
   }
 

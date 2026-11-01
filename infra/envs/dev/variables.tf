@@ -76,3 +76,9 @@ variable "discord_public_key" {
   type        = string
   default     = "97504cad6de4bc986b0886ca787896e87e5aacf8e015d99ce863040e29d086d1"
 }
+
+variable "slack_channel_id" {
+  description = "Slack channel for incident cards (#incidents), e.g. C0123ABCD. Empty: Slack is off."
+  type        = string
+  default     = ""
+}

@@ -208,6 +208,7 @@ data "aws_iam_policy_document" "report" {
       "arn:aws:ssm:${local.region}:${local.account}:parameter${var.discord_webhook_param}",
       "arn:aws:ssm:${local.region}:${local.account}:parameter${var.discord_bot_token_param}",
       local.kill_switch_arn,
+      local.slack_token_arn,
     ]
   }
 
@@ -273,6 +274,8 @@ resource "aws_lambda_function" "report" {
       APPROVAL_TIMEOUT_MINUTES = tostring(var.approval_timeout_minutes)
       KILL_SWITCH_PARAM        = var.kill_switch_param
       POSTMORTEM_FUNCTION      = aws_lambda_function.postmortem.function_name
+      SLACK_BOT_TOKEN_PARAM    = local.slack_token_param
+      SLACK_CHANNEL_ID         = var.slack_channel_id
     }
   }
 

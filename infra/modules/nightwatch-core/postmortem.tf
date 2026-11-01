@@ -119,6 +119,7 @@ data "aws_iam_policy_document" "postmortem" {
     resources = [
       "arn:aws:ssm:${local.region}:${local.account}:parameter/nightwatch/llm/*",
       "arn:aws:ssm:${local.region}:${local.account}:parameter${var.discord_webhook_param}",
+      local.slack_token_arn,
     ]
   }
 
@@ -167,6 +168,8 @@ resource "aws_lambda_function" "postmortem" {
       POSTMORTEM_BUCKET     = aws_s3_bucket.postmortems.bucket
       DISCORD_WEBHOOK_PARAM = var.discord_webhook_param
       LLM_PROVIDERS         = var.llm_providers
+      SLACK_BOT_TOKEN_PARAM = local.slack_token_param
+      SLACK_CHANNEL_ID      = var.slack_channel_id
       LLM_DAILY_REQUESTS    = tostring(var.llm_daily_requests)
     }
   }

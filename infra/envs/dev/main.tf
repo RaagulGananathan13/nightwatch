@@ -60,6 +60,9 @@ module "nightwatch_core" {
 
   # Who may run the MCP server (spec F15): the deployer user, from create-deployer.sh.
   mcp_users = ["arn:aws:iam::${local.account_id}:user/nightwatch/nightwatch-deployer"]
+
+  # The Slack adapter: off while this is empty.
+  slack_channel_id = var.slack_channel_id
 }
 
 # The web dashboard (Phase 7): CloudFront, S3, Cognito and a read-only API.

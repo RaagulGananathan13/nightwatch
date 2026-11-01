@@ -230,6 +230,24 @@ data "aws_iam_policy_document" "interactions" {
   }
 
   statement {
+    sid       = "ReadSlackSigningSecret"
+    actions   = ["ssm:GetParameter"]
+    resources = [local.slack_secret_arn]
+  }
+
+  statement {
+    sid       = "DecryptViaSsmOnly"
+    actions   = ["kms:Decrypt"]
+    resources = ["arn:aws:kms:${local.region}:${local.account}:key/*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "kms:ViaService"
+      values   = ["ssm.${local.region}.amazonaws.com"]
+    }
+  }
+
+  statement {
     sid       = "ReadDashboardAddress"
     actions   = ["ssm:GetParameter"]
     resources = ["arn:aws:ssm:${local.region}:${local.account}:parameter/nightwatch/dashboard/url"]
@@ -271,12 +289,13 @@ resource "aws_lambda_function" "interactions" {
 
   environment {
     variables = {
-      TABLE_NAME         = aws_dynamodb_table.this.name
-      TENANT_ID          = var.tenant_id
-      DISCORD_PUBLIC_KEY = var.discord_public_key
-      ASK_FUNCTION       = aws_lambda_function.ask.function_name
-      UPDATES_FUNCTION   = aws_lambda_function.updates.function_name
-      STATUS_BUCKET      = local.status_bucket
+      TABLE_NAME                 = aws_dynamodb_table.this.name
+      TENANT_ID                  = var.tenant_id
+      DISCORD_PUBLIC_KEY         = var.discord_public_key
+      ASK_FUNCTION               = aws_lambda_function.ask.function_name
+      UPDATES_FUNCTION           = aws_lambda_function.updates.function_name
+      STATUS_BUCKET              = local.status_bucket
+      SLACK_SIGNING_SECRET_PARAM = local.slack_secret_param
     }
   }
 
