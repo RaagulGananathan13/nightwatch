@@ -32,6 +32,7 @@ from nightwatch.agent.tools.logs import (
 )
 from nightwatch.common.audit import AuditLog
 from nightwatch.common.timeutil import to_iso
+from nightwatch.cost import is_cost_alarm
 
 _DECISION: TypeAdapter[Any] = TypeAdapter(AgentDecision)
 _RETRY = "That reply was not one JSON object in either shape. Reply again with only the JSON."
@@ -152,16 +153,23 @@ class Investigator:
 
 
 def initial_plan(ctx: ToolContext) -> list[tuple[str, dict[str, Any], str]]:
-    """The deterministic evidence, in the order a human SRE would look (spec F3)."""
+    """The deterministic evidence, in the order a human SRE would look (spec F3).
+
+    A cost incident (spec F17) is measured in days, not minutes: it starts from the service's
+    daily usage, and its made-up cost-guard alarms have no CloudWatch context to fetch. Only
+    when real alarms share the incident do the minute-scale logs and metrics follow.
+    """
     service, incident = ctx.service, ctx.incident
+    alarms = sorted(name for name in incident.alarms if not is_cost_alarm(name))
+    cost_only = not alarms
     steps: list[tuple[str, dict[str, Any], str]] = [
         ("get_service_info", {"service": service.name}, "service")
     ]
-    steps += [
-        ("get_alarm_context", {"alarm_name": name}, "alarm") for name in sorted(incident.alarms)[:3]
-    ]
-    steps.append(("recent_changes", {"window_minutes": 60}, "changes"))
-    if service.log_groups:
+    if len(alarms) < len(incident.alarms):
+        steps.append(("usage_history", {"days": 14}, "usage"))
+    steps += [("get_alarm_context", {"alarm_name": name}, "alarm") for name in alarms[:3]]
+    steps.append(("recent_changes", {"window_minutes": 180 if cost_only else 60}, "changes"))
+    if service.log_groups and not cost_only:
         group = service.log_groups[0]
         for query, label in (
             (ERRORS_BY_VERSION, "errors_by_version"),
@@ -171,7 +179,7 @@ def initial_plan(ctx: ToolContext) -> list[tuple[str, dict[str, Any], str]]:
         ):
             args = {"log_group": group, "query": query, "minutes": LOG_LOOKBACK_MINUTES}
             steps.append(("query_logs", args, label))
-    for metric in (incident_metrics(ctx) or default_metrics(ctx))[:3]:
+    for metric in [] if cost_only else (incident_metrics(ctx) or default_metrics(ctx))[:3]:
         steps.append(("get_metric_series", metric, "metric"))
     if service.lambda_functions:
         steps.append(("describe_resource", {"name": service.lambda_functions[0]}, "resource"))

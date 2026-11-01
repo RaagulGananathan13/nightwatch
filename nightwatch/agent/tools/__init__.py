@@ -113,7 +113,16 @@ def catalog() -> str:
 
 
 def registry() -> dict[str, Tool]:
-    from nightwatch.agent.tools import alarm, changes, logs, metrics, resource, service, similar
+    from nightwatch.agent.tools import (
+        alarm,
+        changes,
+        logs,
+        metrics,
+        resource,
+        service,
+        similar,
+        usage,
+    )
 
     tools = [
         alarm.TOOL,
@@ -123,5 +132,6 @@ def registry() -> dict[str, Tool]:
         resource.TOOL,
         service.TOOL,
         similar.TOOL,
+        usage.TOOL,
     ]
     return {tool.name: tool for tool in tools}
