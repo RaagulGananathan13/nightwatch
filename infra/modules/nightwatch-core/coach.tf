@@ -156,7 +156,11 @@ resource "aws_iam_role_policy" "coach_schedule" {
 
 data "aws_iam_policy_document" "coach_schedule" {
   statement {
-    actions   = ["lambda:InvokeFunction"]
-    resources = [aws_lambda_function.coach.arn, aws_lambda_function.forecast.arn]
+    actions = ["lambda:InvokeFunction"]
+    resources = [
+      aws_lambda_function.coach.arn,
+      aws_lambda_function.forecast.arn,
+      aws_lambda_function.cost.arn,
+    ]
   }
 }

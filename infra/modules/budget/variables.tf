@@ -21,3 +21,9 @@ variable "services" {
   type        = list(string)
   default     = []
 }
+
+variable "sns_topic_arn" {
+  description = "SNS topic that also receives the alerts (NightWatch's cost guardian). Empty: email only."
+  type        = string
+  default     = ""
+}

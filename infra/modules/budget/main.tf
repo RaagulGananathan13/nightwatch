@@ -2,6 +2,7 @@
 #
 # Three alerts: the first cent of actual spend (1% of $1), actual spend passing the limit, and
 # AWS forecasting that the month will pass the limit. Billing data lags by up to a day.
+# Each goes to email and, when a topic is given, to NightWatch's cost guardian (spec F17).
 
 resource "aws_budgets_budget" "this" {
   name         = var.name
@@ -32,6 +33,7 @@ resource "aws_budgets_budget" "this" {
       threshold                  = notification.value.percent
       threshold_type             = "PERCENTAGE"
       subscriber_email_addresses = [var.alert_email]
+      subscriber_sns_topic_arns  = var.sns_topic_arn == "" ? null : [var.sns_topic_arn]
     }
   }
 }

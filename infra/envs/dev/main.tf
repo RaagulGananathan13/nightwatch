@@ -27,6 +27,9 @@ module "budget" {
   limit_usd   = var.budget_limit_usd
   alert_email = var.budget_alert_email
   services    = var.budget_services
+
+  # Budget alerts also become NightWatch incidents (spec F17).
+  sns_topic_arn = module.nightwatch_core.budget_topic_arn
 }
 
 module "shoplite" {

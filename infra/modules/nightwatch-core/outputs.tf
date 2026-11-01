@@ -54,3 +54,8 @@ output "postmortem_bucket" {
 output "kill_switch_parameter" {
   value = aws_ssm_parameter.kill_switch.name
 }
+
+output "budget_topic_arn" {
+  description = "SNS topic the AWS Budget alerts go to; the cost guardian turns them into incidents (spec F17)."
+  value       = aws_sns_topic.budget.arn
+}
