@@ -296,6 +296,16 @@ class IncidentStore:
             return self.get_incident(incident.id) or incident  # numbered by a retry already
         return incident.model_copy(update={"number": number})
 
+    def set_slack_message(self, incident_id: str, ts: str) -> None:
+        """Remember the incident's card in Slack (its message ts)."""
+        self.client.update_item(
+            TableName=self.table,
+            Key=self._key(f"INC#{incident_id}"),
+            UpdateExpression="SET slack_ts = :t",
+            ConditionExpression="attribute_exists(PK)",
+            ExpressionAttributeValues={":t": _s(ts)},
+        )
+
     def set_discord_message(self, incident_id: str, message_id: str) -> bool:
         """Remember the incident's chat message. Returns False if one was already saved."""
         try:

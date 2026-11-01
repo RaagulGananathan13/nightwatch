@@ -88,6 +88,7 @@ class Action(BaseModel):
     created_at: datetime
     expires_at: datetime | None = None  # when the approval request times out
     message_id: str | None = None  # the approval card in Discord
+    slack_ts: str | None = None  # and in Slack
     decided_by: str | None = None  # Discord user id
     decided_by_name: str | None = None
     decided_at: datetime | None = None

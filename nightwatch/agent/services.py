@@ -34,9 +34,14 @@ class ServiceInfo(BaseModel):
     deploys: str = ""
     runbooks: list[str] = Field(default_factory=list)  # fixes NightWatch may propose
     approvers: list[str] = Field(default_factory=list)  # Discord user ids who may approve them
+    slack_approvers: list[str] = Field(default_factory=list)  # Slack member ids, the same role
     terraform: dict[str, Knob] = Field(default_factory=dict)  # settings a fix PR may raise
     slo: float | None = Field(default=None, gt=0, lt=100)  # availability target, percent (F12)
     public_name: str = ""  # what customers call it, on the status page (F13)
+
+    def can_approve(self, user_id: str) -> bool:
+        """Is this Discord or Slack user one of the service's approvers?"""
+        return bool(user_id) and user_id in (*self.approvers, *self.slack_approvers)
 
     @property
     def resources(self) -> set[str]:

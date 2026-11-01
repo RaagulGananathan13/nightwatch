@@ -51,6 +51,10 @@ class Settings:
     # the dashboard's bucket.
     updates_function: str = ""  # empty: /nw update is off
     status_bucket: str = ""  # empty: nothing can be published
+    # Slack, next to Discord (the spec's Slack adapter). Empty channel: Slack is off.
+    slack_bot_token_param: str = ""  # SSM SecureString: the app's bot token (xoxb-)
+    slack_channel_id: str = ""
+    slack_signing_secret_param: str = ""  # SSM SecureString: checks every request
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> Settings:
@@ -84,4 +88,7 @@ class Settings:
             dashboard_url_param=env.get("DASHBOARD_URL_PARAM", "/nightwatch/dashboard/url"),
             updates_function=env.get("UPDATES_FUNCTION", ""),
             status_bucket=env.get("STATUS_BUCKET", ""),
+            slack_bot_token_param=env.get("SLACK_BOT_TOKEN_PARAM", ""),
+            slack_channel_id=env.get("SLACK_CHANNEL_ID", ""),
+            slack_signing_secret_param=env.get("SLACK_SIGNING_SECRET_PARAM", ""),
         )

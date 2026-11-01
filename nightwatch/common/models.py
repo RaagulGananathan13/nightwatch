@@ -69,6 +69,7 @@ class Incident(BaseModel):
     alarms: dict[str, AlertState] = Field(default_factory=dict)  # latest state of each alarm
     reopen_count: int = 0
     discord_message_id: str | None = None
+    slack_ts: str | None = None  # the incident's card in Slack, when Slack is on
     investigation: InvestigationStatus | None = None
     # nightwatch.agent.models.Investigation, stored as JSON text (DynamoDB has no floats).
     investigation_result: Annotated[dict[str, Any] | None, BeforeValidator(_json_or_none)] = None
