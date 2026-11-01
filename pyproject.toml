@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=80"]
+requires = ["setuptools>=84.2.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -32,13 +32,13 @@ dev = [
   "pytest-cov==7.1.0",
   "ruff==0.17.3",
   "black==26.10.1",
-  "mypy==2.4.0",
+  "mypy==2.4.1",
   "pre-commit==4.7.0",
   "bandit[toml]==1.9.4",
   "pip-audit==2.10.1",
   # AWS SDK and mocks for tests (Lambda provides boto3 at runtime)
-  "boto3==1.43.120",
-  "boto3-stubs[dynamodb,ssm,lambda,cloudwatch,logs,cloudtrail,stepfunctions]==1.43.120",
+  "boto3==1.43.121",
+  "boto3-stubs[dynamodb,ssm,lambda,cloudwatch,logs,cloudtrail,stepfunctions]==1.43.121",
   "types-PyYAML==6.0.12.20260906",
   "moto[dynamodb,ssm,awslambda,stepfunctions]==5.2.5",
 ]
