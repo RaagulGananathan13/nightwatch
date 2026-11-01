@@ -37,7 +37,7 @@ class Alert(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     id: str  # the sender's event id, which makes repeated deliveries harmless
-    source: Literal["cloudwatch", "webhook"]
+    source: Literal["cloudwatch", "webhook", "cost"]  # cost: the cost guardian (spec F17)
     service: str
     alarm_name: str
     alarm_arn: str | None = None

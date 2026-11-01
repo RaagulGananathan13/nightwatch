@@ -1,7 +1,8 @@
 """Lambda entry point: CloudWatch alarm changes in, incidents and Discord messages out.
 
 EventBridge delivers every alarm that goes to ALARM or back to OK. Alarms without a
-``nightwatch:service`` tag belong to someone else and are ignored.
+``nightwatch:service`` tag belong to someone else and are ignored. ``process`` is the pipeline
+every alert goes through; the cost guardian (spec F17) sends its alerts through it too.
 """
 
 from __future__ import annotations
@@ -20,10 +21,10 @@ from nightwatch.common.audit import AuditLog
 from nightwatch.common.config import Settings
 from nightwatch.common.incidents import IncidentStore
 from nightwatch.common.log import emit
-from nightwatch.common.models import Incident
+from nightwatch.common.models import Alert, Incident
 from nightwatch.common.secrets import SecretCache
 from nightwatch.common.timeutil import utcnow
-from nightwatch.ingest.correlate import correlate
+from nightwatch.ingest.correlate import Outcome, correlate
 from nightwatch.ingest.normalize import from_cloudwatch_event
 from nightwatch.ingest.notify import notify
 from nightwatch.postmortem import start as start_postmortem
@@ -53,9 +54,18 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     if alert is None:
         emit("INFO", "event ignored", event_id=event.get("id"), kind=event.get("detail-type"))
         return {"outcome": "ignored"}
+    outcome = process(alert, settings)
+    return {
+        "outcome": outcome.kind,
+        "incident": outcome.incident.label if outcome.incident else None,
+    }
 
+
+def process(alert: Alert, settings: Settings, actor: str = "nightwatch-ingest") -> Outcome:
+    """Correlate one alert, record it, tell Discord, and start what follows: an investigation
+    for a new incident, a postmortem for a resolved one."""
     store = IncidentStore(settings.table_name, settings.tenant_id)
-    audit = AuditLog(settings.table_name, settings.tenant_id, actor="nightwatch-ingest")
+    audit = AuditLog(settings.table_name, settings.tenant_id, actor=actor)
     now = utcnow()
     outcome = correlate(store, alert, settings, now)
 
@@ -90,7 +100,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         and start_postmortem(settings.postmortem_function, outcome.incident.id)
     ):
         audit.record("postmortem_queued", outcome.incident.id)
-    return {"outcome": outcome.kind, "incident": label}
+    return outcome
 
 
 def start_investigation(settings: Settings, incident: Incident, audit: AuditLog) -> None:
