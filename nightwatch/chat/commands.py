@@ -50,17 +50,12 @@ def command(
         job = {
             "question": str(args.get("question", ""))[:300],
             "service": str(args.get("service") or _only_service()),
-            "application_id": str(interaction.get("application_id", "")),
-            "token": str(interaction.get("token", "")),
+            **_reply_to(interaction),
             "user": user_name,
         }
         return ask(job, user_id, audit, start_job)
     if sub.get("name") == "update":
-        job = {
-            "application_id": str(interaction.get("application_id", "")),
-            "token": str(interaction.get("token", "")),
-            "user": user_name,
-        }
+        job = {**_reply_to(interaction), "user": user_name}
         return update(store, audit, str(args.get("incident", "")), job, user_id, start_job)
     return private("NightWatch doesn't know that command.")
 
@@ -96,7 +91,7 @@ def ack(
     incident = store.find(number, ("open",))
     if incident is None:
         return private(f"INC-{number:03d} isn't open.")
-    if user_id not in service_info(incident.service).approvers:
+    if not service_info(incident.service).can_approve(user_id):
         return private(f"Only {incident.service}'s approvers can take its incidents.")
     if not store.acknowledge(incident.id, user_id, user_name, now):
         return private(f"{incident.label} is already taken or no longer open.")
@@ -113,7 +108,7 @@ def ask(
     service = job["service"]
     if service not in load_services():
         return private(f"NightWatch doesn't watch a service called `{_clean(service)}`.")
-    if user_id not in service_info(service).approvers:
+    if not service_info(service).can_approve(user_id):
         return private(f"Only {service}'s approvers can ask about it.")
     if not job["question"].strip():
         return private("Ask a question, e.g. `/nw ask why is checkout slow?`")
@@ -141,7 +136,7 @@ def update(
     incident = store.find(number)
     if incident is None:
         return private(f"INC-{number:03d} isn't among the recent incidents.")
-    if user_id not in service_info(incident.service).approvers:
+    if not service_info(incident.service).can_approve(user_id):
         return private(f"Only {incident.service}'s approvers can draft its updates.")
     if not start_job("updates", {**job, "incident_id": incident.id}):
         return private("Status updates are switched off right now.")
@@ -155,6 +150,16 @@ def public(text: str) -> dict[str, Any]:
 
 def private(text: str) -> dict[str, Any]:
     return {"type": MESSAGE, "data": {"content": text, "flags": EPHEMERAL}}
+
+
+def _reply_to(interaction: dict[str, Any]) -> dict[str, str]:
+    """Where a slow command's answer goes: Slack's response URL, or Discord's interaction."""
+    if interaction.get("slack_response_url"):
+        return {"slack_response_url": str(interaction["slack_response_url"])}
+    return {
+        "application_id": str(interaction.get("application_id", "")),
+        "token": str(interaction.get("token", "")),
+    }
 
 
 def _only_service() -> str:

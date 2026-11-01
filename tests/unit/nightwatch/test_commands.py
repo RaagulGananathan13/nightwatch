@@ -127,7 +127,9 @@ def test_ask_lambda_answers_by_editing_the_reply(monkeypatch: pytest.MonkeyPatch
             )
             return Investigation(diagnosis=diagnosis, method="rules")
 
-    monkeypatch.setattr(ask_lambda, "InteractionReply", FakeReply)
+    monkeypatch.setattr(
+        ask_lambda, "reply_for", lambda job: FakeReply(job["application_id"], job["token"])
+    )
     monkeypatch.setattr(ask_lambda, "Investigator", FakeInvestigator)
     monkeypatch.setattr(ask_lambda, "build_chain", lambda *a, **k: None)
     monkeypatch.setattr(ask_lambda, "AuditLog", lambda *a, **k: AuditLogStub())

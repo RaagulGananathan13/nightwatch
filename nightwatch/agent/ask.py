@@ -19,7 +19,8 @@ from nightwatch.agent.providers.chain import DailyBudget
 from nightwatch.agent.services import service_info
 from nightwatch.agent.tools import ToolContext
 from nightwatch.chat.cards import diagnosis_embed
-from nightwatch.chat.discord import DiscordError, InteractionReply
+from nightwatch.chat.discord import DiscordError
+from nightwatch.chat.slack import SlackError, reply_for
 from nightwatch.common.audit import AuditLog
 from nightwatch.common.config import Settings
 from nightwatch.common.ids import new_ulid
@@ -35,7 +36,7 @@ _secrets = SecretCache()
 def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     settings = Settings.from_env()
     question = str(event["question"])[:300]
-    reply = InteractionReply(str(event["application_id"]), str(event["token"]))
+    reply = reply_for(event)
     now = utcnow()
     ask_id = new_ulid(now)
     service = service_info(str(event["service"]))
@@ -84,7 +85,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
                 "embeds": [answer],
             }
         )
-    except DiscordError as exc:  # the 15-minute token ran out, or Discord is down
+    except (DiscordError, SlackError) as exc:  # the token ran out, or the chat is down
         emit("WARNING", "could not deliver the answer", error=str(exc)[:200])
     audit.record(
         "question_answered",

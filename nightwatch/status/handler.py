@@ -17,7 +17,8 @@ from nightwatch.agent.providers.base import LLMError, LLMUnavailableError
 from nightwatch.agent.providers.chain import DailyBudget
 from nightwatch.agent.services import service_info
 from nightwatch.chat.cards import drafts_message
-from nightwatch.chat.discord import DiscordError, InteractionReply
+from nightwatch.chat.discord import DiscordError
+from nightwatch.chat.slack import SlackError, reply_for
 from nightwatch.common.audit import AuditLog
 from nightwatch.common.config import Settings
 from nightwatch.common.ids import new_ulid
@@ -32,7 +33,7 @@ _secrets = SecretCache()
 
 def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     settings = Settings.from_env()
-    reply = InteractionReply(str(event["application_id"]), str(event["token"]))
+    reply = reply_for(event)
     store = IncidentStore(settings.table_name, settings.tenant_id)
     incident = store.get_incident(str(event["incident_id"]))
     if incident is None:
@@ -66,7 +67,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     )
     try:
         reply.edit(drafts_message(draft))
-    except DiscordError as exc:  # the 15-minute token ran out, or Discord is down
+    except (DiscordError, SlackError) as exc:  # the token ran out, or the chat is down
         emit("WARNING", "could not deliver the drafts", error=str(exc)[:200])
     return {"draft_id": draft["id"], "method": drafts.method}
 

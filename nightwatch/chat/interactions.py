@@ -14,8 +14,12 @@ after the same signature check, and are handled in ``commands.py``. Drafted stat
 (spec F13) carry two more buttons, Publish to status page and Discard, under the same approver
 check; drafts can be decided only once.
 
-Discord wants an answer within 3 seconds, so this only makes a few DynamoDB calls and one
-Step Functions, Lambda or S3 call.
+Slack (the spec's Slack adapter) uses the same URL. Its requests carry an HMAC-SHA256
+signature instead, checked with the app's signing secret, and are reshaped into Discord's form
+so the same code handles both: a Slack click answers through its response URL.
+
+Discord and Slack want an answer within 3 seconds, so this only makes a few DynamoDB calls and
+one Step Functions, Lambda or S3 call (and, for Slack, one post to its response URL).
 """
 
 from __future__ import annotations
@@ -24,6 +28,7 @@ import base64
 import json
 import re
 import time
+import urllib.parse
 from collections.abc import Callable
 from datetime import datetime
 from functools import cache
@@ -35,8 +40,9 @@ from nacl.exceptions import BadSignatureError
 from nacl.signing import VerifyKey
 
 from nightwatch.agent.services import service_info
+from nightwatch.chat import slack
 from nightwatch.chat.cards import approval_message, drafts_message
-from nightwatch.chat.commands import command
+from nightwatch.chat.commands import COMMAND, command
 from nightwatch.common.audit import AuditLog
 from nightwatch.common.config import Settings
 from nightwatch.common.incidents import IncidentStore
@@ -51,7 +57,7 @@ if TYPE_CHECKING:
     from mypy_boto3_stepfunctions import SFNClient
 
 PING, SLASH_COMMAND, COMPONENT = 1, 2, 3  # interaction types
-PONG, MESSAGE, UPDATE_MESSAGE = 1, 4, 7  # response types
+PONG, MESSAGE, DEFERRED, UPDATE_MESSAGE = 1, 4, 5, 7  # response types
 EPHEMERAL = 64  # only the person who clicked sees the reply
 REPLAY_WINDOW_SECONDS = 300
 _CUSTOM_ID = re.compile(r"^nw:(approve|reject):([0-9A-Z]{26}):([0-9A-Z]{26})$")
@@ -78,6 +84,8 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     settings = Settings.from_env()
     headers = {key.lower(): value for key, value in (event.get("headers") or {}).items()}
     body = _body(event)
+    if "x-slack-signature" in headers:
+        return slack_request(settings, headers, body)
     if not verify_signature(
         settings.discord_public_key,
         headers.get("x-signature-ed25519", ""),
@@ -101,6 +109,96 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         return _http(200, decide_update(interaction, store, audit, utcnow(), writer))
     actions = ActionStore(settings.table_name, settings.tenant_id)
     return _http(200, click(interaction, actions, store, audit, utcnow()))
+
+
+def slack_request(settings: Settings, headers: dict[str, str], body: bytes) -> dict[str, Any]:
+    """A Slack click or /nw command: checked, then handled by the same code as Discord's."""
+    param = settings.slack_signing_secret_param
+    secret = _secrets.get(param) if param else ""
+    signature = headers.get("x-slack-signature", "")
+    stamp = headers.get("x-slack-request-timestamp", "")
+    if not slack.verify(secret, signature, stamp, body, time.time()):
+        return _http(401, {"error": "invalid request signature"})
+    form = {
+        k: v[0] for k, v in urllib.parse.parse_qs(body.decode(), keep_blank_values=True).items()
+    }
+    audit = AuditLog(settings.table_name, settings.tenant_id, actor="nightwatch-interactions")
+    store = IncidentStore(settings.table_name, settings.tenant_id)
+    if "payload" in form:  # a button click
+        payload = json.loads(form["payload"])
+        if payload.get("type") == "block_actions":
+            _answer_click(payload, settings, store, audit)
+        return {"statusCode": 200, "headers": {"Content-Type": "text/plain"}, "body": ""}
+
+    sub, _, rest = form.get("text", "").strip().partition(" ")
+    if not sub:
+        hint = "Try `/nw status`, `/nw ack INC-12`, `/nw ask why is checkout slow?` or `/nw update INC-12`."
+        return _http(200, {"response_type": "ephemeral", "text": hint})
+    interaction = {
+        "data": {
+            "name": COMMAND,
+            "options": [
+                {"name": sub.lower(), "options": _slack_options(sub.lower(), rest.strip())}
+            ],
+        },
+        "member": {
+            "user": {"id": form.get("user_id", ""), "global_name": form.get("user_name", "")}
+        },
+        "slack_response_url": form.get("response_url", ""),
+    }
+    return _http(
+        200, _slack_answer(command(interaction, store, audit, utcnow(), _starter(settings)))
+    )
+
+
+def _slack_options(sub: str, rest: str) -> list[dict[str, str]]:
+    """Slack sends "/nw ack INC-12" as plain text; Discord sends named options."""
+    if sub in ("ack", "update"):
+        return [{"name": "incident", "value": rest}]
+    if sub == "ask":
+        return [{"name": "question", "value": rest}]
+    return []
+
+
+def _slack_answer(answer: dict[str, Any]) -> dict[str, Any]:
+    """Discord's response to a command, as Slack's."""
+    if answer.get("type") == DEFERRED:
+        return {
+            "response_type": "ephemeral",
+            "text": "NightWatch is thinking... the answer will follow.",
+        }
+    data = answer.get("data") or {}
+    private = bool(int(data.get("flags", 0)) & EPHEMERAL)
+    return {**slack.to_slack(data), "response_type": "ephemeral" if private else "in_channel"}
+
+
+def _answer_click(
+    payload: dict[str, Any], settings: Settings, store: IncidentStore, audit: AuditLog
+) -> None:
+    """Run a Slack click as a Discord one, then answer through Slack's response URL."""
+    action = (payload.get("actions") or [{}])[0]
+    user = payload.get("user") or {}
+    name = str(user.get("name") or user.get("username") or "")
+    custom_id = str(action.get("action_id", ""))
+    interaction = {  # no message id: the Discord card's id must not be overwritten
+        "data": {"custom_id": custom_id},
+        "member": {"user": {"id": str(user.get("id", "")), "global_name": name}},
+    }
+    if _UPDATE_ID.match(custom_id):
+        answer = decide_update(interaction, store, audit, utcnow(), _status_page(settings, store))
+    else:
+        actions = ActionStore(settings.table_name, settings.tenant_id)
+        answer = click(interaction, actions, store, audit, utcnow())
+    data = answer.get("data") or {}
+    try:
+        reply = slack.SlackReply(str(payload.get("response_url", "")))
+        if answer.get("type") == UPDATE_MESSAGE:
+            reply.send({**slack.to_slack(data), "replace_original": True})
+        else:
+            text = slack.mrkdwn(str(data.get("content", "")))
+            reply.send({"response_type": "ephemeral", "replace_original": False, "text": text})
+    except (slack.SlackError, ValueError) as exc:
+        emit("WARNING", "could not answer the Slack click", error=str(exc)[:200])
 
 
 def _starter(settings: Settings) -> Callable[[str, dict[str, Any]], bool]:
@@ -170,8 +268,9 @@ def click(
     action = actions.get(incident_id, action_id)
     if action is None:
         return _private("NightWatch doesn't know that fix.")
-    approvers = service_info(action.service).approvers
-    if user_id not in approvers:
+    service = service_info(action.service)
+    approvers = service.approvers  # pinged on the Discord card
+    if not service.can_approve(user_id):
         audit.record(
             "approval_refused",
             incident_id,
@@ -243,7 +342,7 @@ def decide_update(
     if draft is None:
         return _private("NightWatch doesn't know those drafts; drafts are kept for 30 days.")
     incident_id, service = str(draft["incident_id"]), str(draft["service"])
-    if user_id not in service_info(service).approvers:
+    if not service_info(service).can_approve(user_id):
         audit.record(
             "update_refused",
             incident_id,
