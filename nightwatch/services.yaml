@@ -19,6 +19,8 @@ services:
     runbooks: [rollback-lambda-alias, reset-feature-flags, reset-lambda-concurrency, raise-dynamodb-capacity]
     # Discord user ids allowed to approve or reject those fixes.
     approvers: ["1048648983599403058"]
+    # Slack member ids allowed to do the same from Slack (the Slack adapter).
+    slack_approvers: ["U0CDEPBJCEB"]
     # Availability target: at most 0.5% of requests may fail (its error budget, spec F12).
     slo: 99.5
     # What customers call it: the public status page uses this name (spec F13).

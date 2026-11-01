@@ -80,5 +80,5 @@ variable "discord_public_key" {
 variable "slack_channel_id" {
   description = "Slack channel for incident cards (#incidents), e.g. C0123ABCD. Empty: Slack is off."
   type        = string
-  default     = ""
+  default     = "C0CDF8TK2RM"
 }
