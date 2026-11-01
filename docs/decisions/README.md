@@ -27,5 +27,6 @@ true $0 per month or to close a gap found while reviewing the spec.
 | [0019](0019-stakeholder-updates.md) | Stakeholder updates: drafted by NightWatch, published by a person | Accepted |
 | [0020](0020-mcp-server.md) | The MCP server: NightWatch's evidence in your own AI assistant | Accepted |
 | [0021](0021-cost-guardian.md) | The cost guardian: cost spikes as incidents, for free | Accepted |
+| [0022](0022-slack-adapter.md) | The Slack adapter: one set of cards, two chats | Accepted |
 
 New records copy the layout of an existing one: Context, Decision, Consequences.
