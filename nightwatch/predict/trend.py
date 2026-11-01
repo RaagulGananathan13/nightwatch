@@ -11,7 +11,9 @@ import calendar
 from dataclasses import dataclass
 from datetime import date, timedelta
 
-MIN_POINTS = 3  # fewer complete days than this: use their average instead of a line
+# Fewer complete days than this: use their average instead of a line. A line through a few
+# days of a young lab turns one test surge into a steep climb that never comes.
+MIN_POINTS = 7
 
 
 @dataclass(frozen=True)
@@ -50,7 +52,7 @@ def month(daily: dict[date, float], today: date, limit: float, history: int = 14
         value for day, value in daily.items() if (day.year, day.month) == (today.year, today.month)
     )
     complete = [daily.get(today - timedelta(days=back), 0.0) for back in range(history, 0, -1)]
-    series = _since_first_use(complete)
+    series = since_first_use(complete)
     line = fit(series)
     last_day = date(today.year, today.month, calendar.monthrange(today.year, today.month)[1])
     total, crossing = so_far, (today if so_far >= limit else None)
@@ -68,7 +70,7 @@ def month(daily: dict[date, float], today: date, limit: float, history: int = 14
 
 def crossing_day(values: list[float], limit: float, today: date, horizon: int = 30) -> date | None:
     """When a daily series (e.g. peak reads) reaches ``limit`` within ``horizon`` days."""
-    series = _since_first_use(values)
+    series = since_first_use(values)
     if series and series[-1] >= limit:
         return today
     line = fit(series)
@@ -80,7 +82,7 @@ def crossing_day(values: list[float], limit: float, today: date, horizon: int = 
     return None
 
 
-def _since_first_use(values: list[float]) -> list[float]:
+def since_first_use(values: list[float]) -> list[float]:
     """Drop the leading days before anything ran, so a new service's empty past doesn't
     flatten its trend."""
     for index, value in enumerate(values):

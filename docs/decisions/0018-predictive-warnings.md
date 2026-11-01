@@ -33,7 +33,9 @@ statistics, not paid anomaly detection.
    or Holt-Winters. Two weeks of a lab's traffic has no seasonality for Holt-Winters to learn,
    and a straight line can be checked by hand. Today's partial day counts toward what has been
    used, never toward the trend. Days before anything ran are left out, so a new service's
-   empty past doesn't flatten its trend.
+   empty past doesn't flatten its trend. A line needs at least 7 such days; with fewer, the
+   forecast uses their average. On 1 November a line through four days of the young lab
+   turned one test surge into a projected 140% of the free tier.
 3. **Four statuses.**
    - **ok:** nothing near the limit.
    - **watch:** a free tier heading for 80% by the month's end, a peak at 80% of capacity,

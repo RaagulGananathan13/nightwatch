@@ -13,9 +13,9 @@ NOW = datetime(2026, 10, 20, 9, 0, tzinfo=UTC)
 
 
 def test_a_straight_line_through_the_points() -> None:
-    line = fit([1.0, 3.0, 5.0, 7.0])
+    line = fit([1.0, 3.0, 5.0, 7.0, 9.0, 11.0, 13.0])
     assert (round(line.slope, 6), round(line.intercept, 6)) == (2.0, 1.0)
-    assert fit([4.0, 6.0]).slope == 0.0  # too few points: the average, flat
+    assert fit([4.0, 6.0, 8.0]).at(30) == 6.0  # under a week of data: the average, flat
     assert fit([]).at(5) == 0.0
 
 
@@ -32,8 +32,10 @@ def test_month_projection_counts_today_but_trends_on_complete_days() -> None:
 
 
 def test_crossing_day_for_a_rising_series() -> None:
-    assert crossing_day([1.0, 2.0, 3.0, 4.0], limit=6.0, today=TODAY) == TODAY + timedelta(days=2)
-    assert crossing_day([5.0, 4.0, 3.0], limit=6.0, today=TODAY) is None
+    week = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]
+    assert crossing_day(week, limit=9.0, today=TODAY) == TODAY + timedelta(days=2)
+    assert crossing_day(week[::-1], limit=9.0, today=TODAY) is None
+    assert crossing_day([1.0, 2.0, 3.0, 4.0], limit=6.0, today=TODAY) is None  # too short
     assert crossing_day([0.0, 0.0, 7.0], limit=6.0, today=TODAY) == TODAY  # already there
 
 
@@ -80,10 +82,10 @@ def test_headroom_for_read_capacity_and_concurrency() -> None:
         def describe_table(self, **kwargs: Any) -> dict[str, Any]:
             return {"Table": {"ProvisionedThroughput": {"ReadCapacityUnits": self.reads}}}
 
-    rising = Metrics({}, [1.0, 2.0, 3.0, 4.0])
+    rising = Metrics({}, [1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0])
     reads = forecast.read_headroom("shoplite", rising, Dynamo(5), NOW)  # type: ignore[arg-type]
     assert reads is not None
-    assert (reads["status"], reads["crossing"]) == ("warn", "2026-10-21")
+    assert (reads["status"], reads["crossing"]) == ("warn", "2026-10-22")
     # An on-demand table reports 0 provisioned reads: nothing to run out of, so no forecast.
     assert forecast.read_headroom("orders", rising, Dynamo(0), NOW) is None  # type: ignore[arg-type]
 
@@ -91,7 +93,7 @@ def test_headroom_for_read_capacity_and_concurrency() -> None:
         def get_account_settings(self) -> dict[str, Any]:
             return {"AccountLimit": {"ConcurrentExecutions": 400}}
 
-    busier = Metrics({}, [300.0, 330.0, 360.0])  # 30 more a day: past 400 in two days
+    busier = Metrics({}, [240.0, 260.0, 280.0, 300.0, 320.0, 340.0, 360.0])  # past 400 in 2 days
     running = forecast.concurrency(busier, Lambda(), NOW)  # type: ignore[arg-type]
     assert (running["status"], running["crossing"]) == ("warn", "2026-10-22")
     assert running["sentence"].startswith("At most 360 functions ran at once")
