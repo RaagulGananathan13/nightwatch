@@ -17,10 +17,15 @@ incident and be investigated like any other.
    - **The daily check** runs at 07:30 UTC, after the forecast, or on demand with
      `make cost-check`. It reads free CloudWatch usage data:
      - **Jumps:** each catalogue service's functions (requests, GB-seconds) and log groups
-       (bytes). A day at least 3 times its usual day (the median of the week before) is a
-       spike. Floors of 1,000 requests, 100 GB-seconds and 10 MB keep small numbers quiet.
-     - **Free tiers:** the account's free tiers, projected the same way as the forecast
-       ([ADR 0018](0018-predictive-warnings.md)). A month heading past one is a signal.
+       (bytes). A day at least 3 times its usual day is a spike. The usual day is the median
+       of up to a week before it. It counts only days since the resource was first used, and
+       only once there are 3 of them. Floors of 1,000 requests, 100 GB-seconds and 10 MB keep
+       small numbers quiet.
+     - **Free tiers:** the account's free tiers, at the usual day's pace: this month so far,
+       plus the median of the last week for each day left. A month heading past one is a
+       signal. This is deliberately not the forecast's straight line
+       ([ADR 0018](0018-predictive-warnings.md)): an incident needs a signal that one busy day
+       can't tilt.
      - **Capacity:** provisioned DynamoDB capacity across NightWatch's and the watched tables,
        when it goes past the free 25 read or 25 write units.
    - **AWS Budget alerts** carry real spend, measured by AWS. The existing budget's three
@@ -60,3 +65,9 @@ incident and be investigated like any other.
   always is.
 - The chaos lab's load tests will look like cost spikes, because they are real usage. Read
   those incidents knowing what ran.
+- The first live run, on 1 November, opened INC-019 on two false signals. Both came from the
+  lab's short history:
+  - The days before ShopLite existed made the usual day 0.
+  - The forecast's line through four days projected 140% of the free tier.
+
+  The rules above (days since first use, a pace instead of a line) came from that run.

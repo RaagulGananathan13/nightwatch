@@ -94,6 +94,13 @@ def test_a_jump_is_three_times_a_usual_day_above_a_floor() -> None:
     assert (jumped.usual, jumped.jumped, jumped.jump_day()) == (2_000.0, True, OCTOBER[-1])
     tiny = Usage("f", "requests", days, (1.0, 1.0, 1.0, 1.0, 900.0))  # 900 times, but tiny
     assert not tiny.jumped
+    # The first live run: days before ShopLite existed made the usual day 0.
+    young = (0.0, 0.0, 0.0, 0.0, 3_281.0, 7_820.0, 19_976.0, 5_760.0)
+    lab = Usage("shoplite-api", "requests", tuple(OCTOBER[-8:]), young)
+    assert (lab.usual, lab.jumped) == (7_820.0, False)
+    newborn = Usage("f", "requests", days, (0.0, 0.0, 3_281.0, 7_820.0, 19_976.0))
+    assert (newborn.usual, newborn.jumped) == (None, False)  # two days of use say nothing yet
+    assert not tiny.jumped
     assert tiny.jump_day() is None
 
 
@@ -107,7 +114,10 @@ def test_the_daily_check_finds_jumps_free_tiers_and_capacity() -> None:
     assert signals[0].summary == (
         "shoplite-api used 9,000 requests yesterday, 4.5 times a usual day (2,000 requests)."
     )
-    assert "It would pass the free tier on 26 November." in signals[1].summary
+    assert signals[1].summary == (
+        "Lambda requests: 0 requests used this month; at the usual day's pace (40,000 requests) "
+        "the month ends at 1,160,000 requests, past the free 1,000,000 requests."
+    )
     assert "provisioned with 35 read and 15 write units" in signals[2].summary
 
 

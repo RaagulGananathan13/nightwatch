@@ -1,7 +1,8 @@
 """What the cost guardian raises (spec F17): one signal per thing that costs, or will cost, money.
 
 - A resource whose usage jumped yesterday (usage.py).
-- A free tier the month is heading past: the same projection as the daily forecast (F12).
+- A free tier the month is heading past at the usual day's pace. Not the forecast's straight
+  line (F12): an incident needs a signal that one busy day can't tilt.
 - Provisioned DynamoDB capacity beyond the free 25 read and 25 write units.
 - An AWS Budget alert: real spend, measured by AWS itself.
 
@@ -19,13 +20,12 @@ from typing import Any
 from nightwatch.agent.services import ServiceInfo, load_services
 from nightwatch.common.models import Severity
 from nightwatch.cost import PREFIX
-from nightwatch.cost.usage import Usage, amount, service_usage
+from nightwatch.cost.usage import Usage, amount, month_pace, service_usage
 from nightwatch.predict.handler import (
     FREE_GB_SECONDS,
     FREE_LOG_BYTES,
     FREE_REQUESTS,
     Metrics,
-    free_tier,
     gb_seconds,
 )
 
@@ -61,7 +61,7 @@ def daily(
             name,
             "medium",
             f"{u.resource} used {amount(u.yesterday, u.measure)} yesterday, {u.ratio:.1f} times "
-            f"a usual day ({amount(u.usual, u.measure)}).",
+            f"a usual day ({amount(u.usual or 0.0, u.measure)}).",
         )
         for name, found in usage.items()
         for u in found
@@ -70,40 +70,30 @@ def daily(
 
     metrics = Metrics(cloudwatch, now)
     tiers = [
+        ("Lambda requests", "requests", FREE_REQUESTS, metrics.daily("AWS/Lambda", "Invocations")),
+        ("Lambda compute", "GB-seconds", FREE_GB_SECONDS, gb_seconds(metrics, lambda_)),
         (
-            "requests",
-            free_tier(
-                "Lambda requests",
-                "requests",
-                FREE_REQUESTS,
-                metrics.daily("AWS/Lambda", "Invocations"),
-                now,
-            ),
-        ),
-        (
-            "GB-seconds",
-            free_tier(
-                "Lambda compute", "GB-seconds", FREE_GB_SECONDS, gb_seconds(metrics, lambda_), now
-            ),
-        ),
-        (
+            "CloudWatch log ingestion",
             "log bytes",
-            free_tier(
-                "CloudWatch log ingestion",
-                "bytes",
-                FREE_LOG_BYTES,
-                metrics.daily("AWS/Logs", "IncomingBytes"),
-                now,
-            ),
+            FREE_LOG_BYTES,
+            metrics.daily("AWS/Logs", "IncomingBytes"),
         ),
     ]
-    for measure, forecast in tiers:
-        if forecast["status"] in ("warn", "over"):
-            severity: Severity = "high" if forecast["status"] == "over" else "medium"
-            alarm = f"{PREFIX}free-tier:{_slug(forecast['name'])}"
-            signals.append(
-                Signal(alarm, owner(usage, measure, services), severity, forecast["sentence"])
+    for name, measure, limit, values in tiers:
+        so_far, usual, projected = month_pace(values, now.date())
+        if projected < limit:
+            continue
+        severity: Severity = "high" if so_far >= limit else "medium"
+        signals.append(
+            Signal(
+                f"{PREFIX}free-tier:{_slug(name)}",
+                owner(usage, measure, services),
+                severity,
+                f"{name}: {amount(so_far, measure)} used this month; at the usual day's pace "
+                f"({amount(usual, measure)}) the month ends at {amount(projected, measure)}, "
+                f"past the free {amount(limit, measure)}.",
             )
+        )
 
     tables = [own_table, *[t for s in services for t in s.dynamodb_tables]]
     read, write = capacity(dynamodb, tables)

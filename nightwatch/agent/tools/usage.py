@@ -31,7 +31,8 @@ def run(ctx: ToolContext, args: Args) -> ToolResult:
         lines.append(
             f"- {usage.resource} {usage.measure}: yesterday "
             f"{amount(usage.yesterday, usage.measure)}, usual day "
-            f"{amount(usage.usual, usage.measure)}; "
+            + (amount(usage.usual, usage.measure) if usage.usual is not None else "unknown yet")
+            + "; "
             + (f"jumped on {jump.isoformat()}" if jump else "no jump")
         )
     versions = _versions(ctx, first)

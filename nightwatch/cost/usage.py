@@ -8,15 +8,18 @@ still running.
 
 from __future__ import annotations
 
+import calendar
 import statistics
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from nightwatch.agent.services import ServiceInfo
+from nightwatch.predict.trend import since_first_use
 
 JUMP = 3.0  # a day at least this many times its usual day is a spike
 USUAL_DAYS = 7  # the usual day: the median of up to this many days before it
+MIN_HISTORY = 3  # days of use before a day can be called unusual: an empty past says nothing
 FLOORS = {"requests": 1_000.0, "GB-seconds": 100.0, "log bytes": 10 * 1024**2}  # below: noise
 
 
@@ -32,13 +35,15 @@ class Usage:
         return self.values[-1] if self.values else 0.0
 
     @property
-    def usual(self) -> float:
+    def usual(self) -> float | None:
+        """The usual day before yesterday; None while there is too little history."""
         return _usual(self.values, len(self.values) - 1)
 
     @property
     def ratio(self) -> float:
         """Yesterday against the usual day (or the noise floor, whichever is larger)."""
-        return self.yesterday / max(self.usual, FLOORS[self.measure])
+        usual = self.usual
+        return 0.0 if usual is None else self.yesterday / max(usual, FLOORS[self.measure])
 
     @property
     def jumped(self) -> bool:
@@ -48,7 +53,10 @@ class Usage:
         """The day with the biggest jump over its usual day, if that jump was a spike."""
         best, when = JUMP, None
         for index in range(1, len(self.values)):
-            ratio = self.values[index] / max(_usual(self.values, index), FLOORS[self.measure])
+            usual = _usual(self.values, index)
+            if usual is None:
+                continue
+            ratio = self.values[index] / max(usual, FLOORS[self.measure])
             if ratio >= best:
                 best, when = ratio, self.days[index]
         return when
@@ -97,6 +105,23 @@ def amount(value: float, measure: str) -> str:
     return f"{value:,.0f} {measure}"
 
 
-def _usual(values: tuple[float, ...], index: int) -> float:
-    before = values[max(0, index - USUAL_DAYS) : index]
-    return float(statistics.median(before)) if before else 0.0
+def month_pace(daily: dict[date, float], today: date) -> tuple[float, float, float]:
+    """This month so far, the usual day lately, and where the month ends at that pace.
+
+    The usual day is the median of the last week's complete days since first use, so one busy
+    day can't move it the way it tilts a straight line.
+    """
+    so_far = sum(
+        v for day, v in daily.items() if (day.year, day.month) == (today.year, today.month)
+    )
+    week = [daily.get(today - timedelta(days=back), 0.0) for back in range(USUAL_DAYS, 0, -1)]
+    used = since_first_use(week)
+    usual = float(statistics.median(used)) if used else 0.0
+    days_left = calendar.monthrange(today.year, today.month)[1] - today.day
+    return so_far, usual, so_far + usual * days_left
+
+
+def _usual(values: tuple[float, ...], index: int) -> float | None:
+    """The median of up to a week before ``index``, counting only days since first use."""
+    before = since_first_use(list(values[:index]))[-USUAL_DAYS:]
+    return float(statistics.median(before)) if len(before) >= MIN_HISTORY else None
