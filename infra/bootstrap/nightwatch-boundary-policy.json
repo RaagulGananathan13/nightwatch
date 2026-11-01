@@ -146,6 +146,26 @@
       "Resource": "arn:aws:budgets::__ACCOUNT_ID__:budget/nightwatch-*"
     },
     {
+      "Sid": "OwnTopics",
+      "Effect": "Allow",
+      "Action": [
+        "sns:CreateTopic",
+        "sns:DeleteTopic",
+        "sns:GetTopicAttributes",
+        "sns:SetTopicAttributes",
+        "sns:Subscribe",
+        "sns:Unsubscribe",
+        "sns:GetSubscriptionAttributes",
+        "sns:SetSubscriptionAttributes",
+        "sns:ListSubscriptionsByTopic",
+        "sns:Publish",
+        "sns:TagResource",
+        "sns:UntagResource",
+        "sns:ListTagsForResource"
+      ],
+      "Resource": "arn:aws:sns:__REGION__:__ACCOUNT_ID__:nightwatch-*"
+    },
+    {
       "Sid": "DashboardCdnCreate",
       "Effect": "Allow",
       "Action": [

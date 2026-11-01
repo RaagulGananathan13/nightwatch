@@ -161,6 +161,9 @@ data "aws_iam_policy_document" "plan" {
       "lambda:ListVersionsByFunction",
       "logs:ListTagsForResource",
       "scheduler:GetSchedule",
+      "sns:GetSubscriptionAttributes",
+      "sns:GetTopicAttributes",
+      "sns:ListTagsForResource",
       "sqs:GetQueueAttributes",
       "sqs:ListQueueTags",
       "ssm:GetParameter",
@@ -187,6 +190,7 @@ data "aws_iam_policy_document" "plan" {
         "arn:aws:budgets::${local.account}:budget/nightwatch-*",
         "arn:aws:lambda:${local.region}:${local.account}:layer:nightwatch-*",
         "arn:aws:sqs:${local.region}:${local.account}:nightwatch-*",
+        "arn:aws:sns:${local.region}:${local.account}:nightwatch-*",
       ],
     )
   }
