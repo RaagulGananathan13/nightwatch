@@ -31,7 +31,7 @@ GIT_SHA := $(shell git rev-parse --short=12 HEAD 2>/dev/null || echo dev)
 .PHONY: chaos chaos-list chaos-fix chaos-fix-flag discord-endpoint eval
 .PHONY: memory-check discord-commands backfill-memory
 .PHONY: dashboard dashboard-check dashboard-dev dashboard-deploy
-.PHONY: coach forecast mcp-check
+.PHONY: coach forecast mcp-check cost-check
 
 help: ## Show this list
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-15s %s\n", $$1, $$2}'
@@ -133,6 +133,9 @@ forecast: ## Make today's forecasts now (they also run every morning)
 
 mcp-check: ## Test the MCP server setup: switch to its role and ask whats_going_on
 	$(PY) -m nightwatch.mcp_server --check
+
+cost-check: ## Run the cost guardian's daily check now (it also runs every morning)
+	$(PY) -c "import boto3; r=boto3.Session(profile_name='$(AWS_PROFILE)',region_name='us-east-2').client('lambda').invoke(FunctionName='nightwatch-cost',Payload=b'{}'); print(r['Payload'].read().decode())"
 
 dashboard: ## Build the web dashboard into dashboard/dist
 	cd dashboard && npm ci --no-audit --no-fund && npm run build
