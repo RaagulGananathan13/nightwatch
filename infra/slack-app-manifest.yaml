@@ -1,0 +1,30 @@
+# The NightWatch Slack app (the Slack adapter, ADR 0022). At api.slack.com/apps choose
+# Create New App → From a manifest, pick your workspace, and paste this as YAML after
+# replacing both <INTERACTIONS_URL> with:
+#   terraform -chdir=infra/envs/dev output -raw discord_interactions_url
+# (Discord and Slack share that URL.)
+display_information:
+  name: NightWatch
+  description: AI on-call agent for AWS
+features:
+  bot_user:
+    display_name: NightWatch
+    always_online: true
+  slash_commands:
+    - command: /nw
+      url: <INTERACTIONS_URL>
+      description: Talk to NightWatch
+      usage_hint: status | ack INC-12 | ask <question> | update INC-12
+      should_escape: false
+oauth_config:
+  scopes:
+    bot:
+      - chat:write
+      - commands
+settings:
+  interactivity:
+    is_enabled: true
+    request_url: <INTERACTIONS_URL>
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false

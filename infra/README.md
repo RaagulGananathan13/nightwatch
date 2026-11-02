@@ -135,9 +135,12 @@ Run the `make` commands from Git Bash in the repository root.
 10. **Add Slack (optional).** NightWatch can post the same cards to Slack, with the same
    buttons and `/nw` commands ([ADR 0022](../docs/decisions/0022-slack-adapter.md)).
    1. Create a workspace (the free plan is enough), then an app at
-      [api.slack.com/apps](https://api.slack.com/apps): **Create New App → From scratch**.
-   2. **OAuth & Permissions → Bot Token Scopes:** add `chat:write` and `commands`, then
-      **Install to Workspace**. Copy the **Bot User OAuth Token** (it starts with `xoxb-`).
+      [api.slack.com/apps](https://api.slack.com/apps): **Create New App → From a manifest**.
+      Paste [slack-app-manifest.yaml](slack-app-manifest.yaml) with both `<INTERACTIONS_URL>`
+      replaced by `terraform -chdir=infra/envs/dev output -raw discord_interactions_url`. It
+      sets up the scopes, the `/nw` command and the button URL in one go.
+   2. **OAuth & Permissions → Install to Workspace.** Copy the **Bot User OAuth Token** (it
+      starts with `xoxb-`).
    3. **Basic Information → App Credentials:** copy the **Signing Secret**.
    4. Store both, the same way as the Discord token:
 
@@ -151,10 +154,8 @@ Run the `make` commands from Git Bash in the repository root.
       `terraform.tfvars`.
    6. List your Slack member id (your profile → **⋮ → Copy member ID**) under
       `slack_approvers` in `nightwatch/services.yaml`, then `make apply`.
-   7. Take the URL from `terraform -chdir=infra/envs/dev output -raw discord_interactions_url`
-      (Discord and Slack share it). Paste it under **Interactivity & Shortcuts → Request URL**,
-      then under **Slash Commands → Create New Command**, with command `/nw` and the usage hint
-      `status | ack INC-12 | ask <question> | update INC-12`.
+   7. Type slash commands rather than pasting them: Slack sends pasted, formatted text as a
+      message instead of a command.
 
 11. **Ship code.** Any merge to `main` that touches `shoplite/` now deploys a new version. You can also
    start one by hand with **Actions → Deploy ShopLite → Run workflow**.
