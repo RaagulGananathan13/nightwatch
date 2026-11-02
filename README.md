@@ -12,17 +12,25 @@ always-free services and free LLM tiers.
 [![CI](https://github.com/RaagulGananathan13/nightwatch/actions/workflows/ci.yml/badge.svg)](https://github.com/RaagulGananathan13/nightwatch/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-> **Status: Phase 7 of 9 done.** NightWatch groups alarms into one incident per service, then an
-> AI agent gathers evidence and posts a diagnosis that cites it. When the evidence matches a
-> reviewed runbook, it proposes the fix, and the fix runs only after a human clicks **Approve** in
-> Discord. Then it is verified. In an evaluation on 7 real injected faults, NightWatch named the
+> **Status: Phase 8 of 9 done.** NightWatch groups alarms into one incident per service, then an
+> AI agent gathers evidence and posts a diagnosis that cites it, in Discord or Slack. When the
+> evidence matches a reviewed runbook, it proposes the fix, and the fix runs only after a human
+> clicks **Approve**. Then it is verified. In an evaluation on 7 real injected faults, NightWatch named the
 > root cause of **all 7**. Its diagnosis reached Discord a mean **46 seconds** after the alarm,
 > every cited fact checked out against the evidence, and it proposed the right fix every time,
 > all at $0 ([results](eval/results.md)). It also remembers past incidents, so a repeat
 > failure is labelled with the earlier one. Every resolved incident gets a postmortem, and
 > Discord's `/nw` commands can ask it questions. A web dashboard behind a login shows every
-> incident with the evidence behind its diagnosis. Next are the differentiators (Phase 8). See the
-> [roadmap](#roadmap) and the [infrastructure guide](infra/README.md).
+> incident with the evidence behind its diagnosis. Phase 8 added:
+> - pull requests for settings that are too small;
+> - an alert-noise coach and daily forecasts;
+> - a public status page;
+> - an MCP server for your own AI assistant;
+> - a cost guardian;
+> - Slack.
+>
+> Next: production readiness (Phase 9). See the [roadmap](#roadmap) and the
+> [infrastructure guide](infra/README.md).
 
 ## How it works
 
@@ -75,7 +83,7 @@ Phase 9 is tagged `v1.0`.
 | 5 | Chaos lab and evaluation harness (accuracy, time to diagnosis) | Done |
 | 6 | Incident memory, auto-revert, postmortems, ChatOps commands | Done |
 | 7 | Web dashboard (React and Cognito) | Done |
-| 8 | Fix-as-PR, alert-noise coach, predictions, status page, MCP server, cost guardian | In progress: fix-as-PR, alert coach, forecasts, status updates and MCP server done |
+| 8 | Fix-as-PR, alert-noise coach, predictions, status page, MCP server, cost guardian, Slack | Done |
 | 9 | Multi-account connect, docs, security review, launch | Planned |
 
 ## Cost
@@ -259,6 +267,32 @@ the Python is `.venv/bin/python`):
 ```bash
 claude mcp add nightwatch -- /path/to/nightwatch/.venv/Scripts/python.exe -m nightwatch.mcp_server
 ```
+
+**Phase 8, cost guardian (2026-11-01, `make cost-check`).** The first live run opened INC-019 on
+two false signals, both from the lab's short history:
+- The days before ShopLite existed made its usual day 0, so an ordinary 5,760 requests looked
+  like 5.8 times normal.
+- The forecast's straight line through four days projected 140% of the free Lambda requests.
+  The real pace is about 24%.
+
+Both were fixed that day. The usual day now counts only days since first use, and free-tier
+incidents use the usual day's pace. A budget drill published to the new SNS topic reached the
+incident within seconds. At 07:30 UTC the next morning, the check no longer saw any of the three
+signals and sent their all-clears. INC-019 then resolved itself and got its postmortem
+([ADR 0021](docs/decisions/0021-cost-guardian.md)).
+
+**Phase 8, Slack (2026-11-02, `python -m chaos bad-deploy --let-nightwatch-fix`).** In Slack,
+`/nw status` listed the open incident, and `/nw ask` posted its answer after a "thinking" note
+only the asker saw. The bad-deploy run then went like this:
+- INC-020 opened 58 seconds after the fault.
+- Its Slack card carried the verified diagnosis: version 17 reads a missing `price` field.
+- The approval card arrived in the incident's thread and pinged the approver.
+- **Approve**, clicked in Slack, ran the rollback 3 seconds later.
+- NightWatch verified the fix (no errors for 2 minutes), closed the incident and updated both
+  chats.
+
+The chaos script gave up waiting too early, because the approval came 16 minutes in. It now waits
+for the verification once a fix is approved ([ADR 0022](docs/decisions/0022-slack-adapter.md)).
 
 Earlier runs against the deployed stack, from 2026-10-28:
 
