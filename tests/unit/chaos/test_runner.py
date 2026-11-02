@@ -236,11 +236,13 @@ def test_the_bug_still_matches_shoplite_source() -> None:
 
 
 class FixLab(FakeLab):
-    """NightWatch proposes a rollback at 2 min; the approver decides at 3 min 20 s."""
+    """NightWatch proposes a rollback at 2 min; the approver decides at ``decides`` seconds
+    (3 min 20 s unless given), and the fix is verified 200 seconds after that."""
 
-    def __init__(self, time: FakeTime, decision: str) -> None:
+    def __init__(self, time: FakeTime, decision: str, decides: float = 200.0) -> None:
         super().__init__(time)
         self.decision = decision
+        self.decides = decides
         self.fixed = False
 
     def actions(self, incident_id: str) -> list[Action]:
@@ -248,17 +250,17 @@ class FixLab(FakeLab):
         if seconds < 120:
             return []
         status = "awaiting_approval"
-        if seconds >= 200 and self.decision == "reject":
+        if seconds >= self.decides and self.decision == "reject":
             status = "rejected"
-        elif seconds >= 200:
+        elif seconds >= self.decides:
             if not self.fixed:
                 self.fixed, self.live = True, "4"  # NightWatch's rollback
-            status = "verified" if seconds >= 400 else "executed"
+            status = "verified" if seconds >= self.decides + 200 else "executed"
         return [make_action(status, decided_by_name="Raagul")]
 
     def audit(self, incident_id: str) -> list[dict[str, Any]]:
         chain = ["notification_sent", "remediation_proposed", "approval_requested"]
-        if self.time.seconds >= 200:
+        if self.time.seconds >= self.decides:
             chain.append("approval_decided")
             if self.decision == "approve":
                 chain += ["remediation_executed", "remediation_verified"]
@@ -274,6 +276,17 @@ def test_an_approved_fix_is_verified_and_the_chain_is_audited() -> None:
     assert any(line.startswith("PASS: approved by Raagul") for line in lines)
     assert "remediation_proposed -> approval_requested -> approval_decided" in "\n".join(lines)
     assert lab.live == "4"
+
+
+def test_a_late_approval_still_waits_for_the_verification() -> None:
+    """The live test on 2 November: approved 16 minutes in, the runner gave up at 20 while
+    NightWatch was still verifying. A fix in progress now gets time to finish."""
+    time, lines = FakeTime(), list[str]()
+    lab = FixLab(time, "approve", decides=19 * 60)
+    code = run_fix(lab, bad_deploy.scenario(lab), out=lines.append, clock=time.clock,
+                   sleep=time.sleep, now=time.now)  # fmt: skip
+    assert code == 0, lines
+    assert any(line.startswith("PASS: approved by Raagul") for line in lines)
 
 
 def test_rejecting_changes_nothing_and_the_lab_still_cleans_up() -> None:

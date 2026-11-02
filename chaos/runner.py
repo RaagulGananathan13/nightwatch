@@ -32,6 +32,9 @@ from nightwatch.remediation.actions import FINAL, Action
 
 SERVICE = "shoplite"
 OPEN_INCIDENT_WAIT = timedelta(minutes=15)
+# Once a fix is approved, wait at least this long for its verification, however late the
+# click came: the workflow waits several minutes for CloudWatch before it checks.
+VERIFY_GRACE = timedelta(minutes=10)
 # What a fix must leave in the audit log, in this order (spec F14).
 FIX_CHAIN = [
     "remediation_proposed",
@@ -166,7 +169,8 @@ def run_fix(
     undo = scenario.inject(out)
     faulted = now()
     out(
-        "The fault stays in place. When the approval card appears in Discord, click Approve "
+        "The fault stays in place. When the approval card appears in Discord or Slack, click "
+        "Approve "
         "(or Reject, to check that nothing changes)."
     )
     statuses: Counter[int] = Counter()
@@ -185,6 +189,9 @@ def run_fix(
                     if action and action.status != seen:
                         seen = action.status
                         out(f"  Fix '{action.title}' ({action.preview}): {action.status}")
+                        if seen in ("approved", "executed"):
+                            grace = clock() + VERIFY_GRACE.total_seconds()
+                            deadline = max(deadline, grace)
                     if action and action.status in FINAL:
                         break
                     next_check = clock() + 10
