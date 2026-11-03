@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "nightwatch"
 dynamic = ["version"]
-description = "Open-source AI on-call agent for AWS: evidence-backed incident diagnosis and approval-gated fixes at $0/month."
+description = "Open-source AI on-call agent for AWS: evidence-backed incident diagnosis and human-approved fixes, on AWS free tiers (about $0.01 a month)."
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
