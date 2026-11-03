@@ -29,5 +29,6 @@ true $0 per month or to close a gap found while reviewing the spec.
 | [0021](0021-cost-guardian.md) | The cost guardian: cost spikes as incidents, for free | Accepted |
 | [0022](0022-slack-adapter.md) | The Slack adapter: one set of cards, two chats | Accepted |
 | [0023](0023-connected-accounts.md) | Connected accounts: a read-only role, an ExternalId and STS | Accepted |
+| [0024](0024-emergency-stop.md) | The emergency stop: switch everything off before it costs money | Accepted |
 
 New records copy the layout of an existing one: Context, Decision, Consequences.

@@ -6,8 +6,9 @@ Slack, where every claim links to the log line or metric it came from. Fixes run
 approves them. NightWatch then verifies each fix and writes the incident up in an automatic
 postmortem.
 
-NightWatch is self-hosted and bring-your-own-LLM. It is designed to run at **$0 a month** on AWS
-always-free services and free LLM tiers.
+NightWatch is self-hosted and bring-your-own-LLM. It runs on AWS always-free services and free
+LLM tiers, measured at about **one cent a month**. If spend ever runs away, an emergency stop
+switches it off ([cost and safety](docs/cost-and-safety.md)).
 
 [![CI](https://github.com/RaagulGananathan13/nightwatch/actions/workflows/ci.yml/badge.svg)](https://github.com/RaagulGananathan13/nightwatch/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
@@ -19,7 +20,7 @@ always-free services and free LLM tiers.
 > clicks **Approve**. Then it is verified. In an evaluation on 7 real injected faults, NightWatch named the
 > root cause of **all 7**. Its diagnosis reached Discord a mean **46 seconds** after the alarm,
 > every cited fact checked out against the evidence, and it proposed the right fix every time,
-> all at $0 ([results](eval/results.md)). It also remembers past incidents, so a repeat
+> all on free tiers ([results](eval/results.md)). It also remembers past incidents, so a repeat
 > failure is labelled with the earlier one. Every resolved incident gets a postmortem, and
 > Discord's `/nw` commands can ask it questions. A web dashboard behind a login shows every
 > incident with the evidence behind its diagnosis. Phase 8 added:
@@ -97,7 +98,8 @@ Phase 9 is tagged `v1.0`.
 ## Cost
 
 NightWatch only uses services that have an always-free allowance, and it is built to stay
-inside those allowances.
+inside those allowances. Measured by the AWS budget, real spend was **$0.01 in October 2026**
+and under a cent so far in November.
 
 | Service | How NightWatch stays free |
 |---|---|
@@ -111,7 +113,10 @@ inside those allowances.
 | LLM | Groq or Gemini free tiers, or Ollama locally ([ADR 0003](docs/decisions/0003-llm-strategy-and-call-budget.md)) |
 | GitHub Actions | Free for public repositories |
 
-Phase 1 adds an AWS Budget that emails an alert at $1.
+An AWS budget emails you at the first cent of real spend, at $1, and when it forecasts more
+than $1. The **emergency stop** switches every NightWatch and ShopLite Lambda off at $0.50 of
+real spend, or at 30,000 Lambda calls in 5 minutes. It stays off until you check the bill and
+run `make resume` ([ADR 0024](docs/decisions/0024-emergency-stop.md)).
 
 ## Develop locally
 
@@ -384,6 +389,11 @@ unit tests ([ADR 0012](docs/decisions/0012-approval-gated-remediation.md)).
 
 [docs/decisions](docs/decisions/README.md) records where NightWatch departs from the original
 spec and why. The full build spec is [NightWatch-SPEC.md](NightWatch-SPEC.md).
+
+## Contributing
+
+Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md). Please report security
+problems privately, as [SECURITY.md](SECURITY.md) describes.
 
 ## License
 
