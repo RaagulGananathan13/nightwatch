@@ -1,23 +1,22 @@
-site_name: NightWatch
-site_description: An open-source AI on-call agent for AWS that runs on free tiers
+site_name: NightWatch Docs
+site_description: Documentation for NightWatch, an open-source on-call agent for AWS
 site_author: NightWatch contributors
 site_url: https://raagulgananathan13.github.io/nightwatch/
 repo_url: https://github.com/RaagulGananathan13/nightwatch
 repo_name: nightwatch
 edit_uri: edit/main/docs/
-copyright: Copyright &copy; 2026 NightWatch contributors · Apache-2.0
+copyright: Copyright &copy; 2026 NightWatch contributors. Licensed under the Apache License 2.0.
 
 theme:
   name: material
-  custom_dir: overrides # the announcement bar
-  logo: assets/logo.svg
-  favicon: assets/logo.svg
-  font: false # Inter and JetBrains Mono load from extra.css, with every weight it uses
+  custom_dir: overrides # .icons/nightwatch/logo.svg, the header mark
+  favicon: assets/favicon.svg
+  font: false # IBM Plex Sans and Mono load from extra.css
   icon:
+    logo: nightwatch/logo
     repo: fontawesome/brands/github
     edit: material/pencil-outline
   features:
-    - announce.dismiss
     - content.action.edit
     - content.code.annotate
     - content.code.copy
@@ -26,7 +25,6 @@ theme:
     - navigation.footer
     - navigation.indexes
     - navigation.instant
-    - navigation.instant.progress
     - navigation.sections
     - navigation.tabs
     - navigation.tabs.sticky
@@ -36,27 +34,20 @@ theme:
     - search.share
     - search.suggest
     - toc.follow
+  # Dark by default; the reader can switch to light, and the choice is remembered.
   palette:
-    - media: "(prefers-color-scheme)"
-      primary: custom
-      accent: custom
-      toggle:
-        icon: material/brightness-auto
-        name: Use light mode
-    - media: "(prefers-color-scheme: light)"
-      scheme: default
+    - scheme: slate
       primary: custom
       accent: custom
       toggle:
         icon: material/weather-sunny
-        name: Use dark mode
-    - media: "(prefers-color-scheme: dark)"
-      scheme: slate
+        name: Switch to light mode
+    - scheme: default
       primary: custom
       accent: custom
       toggle:
         icon: material/weather-night
-        name: Follow the system setting
+        name: Switch to dark mode
 
 extra_css:
   - stylesheets/extra.css
@@ -100,38 +91,42 @@ nav:
   - Home: index.md
   - Get started:
       - Quickstart: quickstart.md
-      - Connect an account: connect.md
-      - Demo script: demo-script.md
+      - Connect an AWS account: connect.md
   - Concepts:
       - Architecture: architecture.md
       - Cost and safety: cost-and-safety.md
       - Security review: security-review.md
-  - Design decisions:
-      - decisions/README.md
-      - 0001 · Function URLs: decisions/0001-function-urls-instead-of-api-gateway.md
-      - 0002 · DynamoDB capacity: decisions/0002-dynamodb-provisioned-capacity.md
-      - 0003 · LLM strategy: decisions/0003-llm-strategy-and-call-budget.md
-      - 0004 · Terraform state: decisions/0004-terraform-state-s3-native-locking.md
-      - 0005 · Python on arm64: decisions/0005-python-313-arm64-minimal-dependencies.md
-      - 0006 · Deployer and boundary: decisions/0006-restricted-deployer-and-permissions-boundary.md
-      - 0007 · Free API calls only: decisions/0007-free-aws-api-calls-only.md
-      - 0008 · CI and Terraform: decisions/0008-ci-ships-code-terraform-ships-infrastructure.md
-      - 0009 · Tenant-prefixed keys: decisions/0009-tenant-prefixed-single-table.md
-      - 0010 · One incident per service: decisions/0010-one-active-incident-per-service.md
-      - 0011 · Evidence and the guard: decisions/0011-evidence-ledger-guard-and-workflow.md
-      - 0012 · Approval-gated fixes: decisions/0012-approval-gated-remediation.md
-      - 0013 · Evaluation: decisions/0013-evaluating-nightwatch.md
-      - 0014 · Memory and postmortems: decisions/0014-memory-postmortems-chatops.md
-      - 0015 · Dashboard: decisions/0015-dashboard.md
-      - 0016 · Fix as pull request: decisions/0016-fix-as-pull-request.md
-      - 0017 · Alert-quality coach: decisions/0017-alert-quality-coach.md
-      - 0018 · Predictive warnings: decisions/0018-predictive-warnings.md
-      - 0019 · Stakeholder updates: decisions/0019-stakeholder-updates.md
-      - 0020 · MCP server: decisions/0020-mcp-server.md
-      - 0021 · Cost guardian: decisions/0021-cost-guardian.md
-      - 0022 · Slack adapter: decisions/0022-slack-adapter.md
-      - 0023 · Connected accounts: decisions/0023-connected-accounts.md
-      - 0024 · Emergency stop: decisions/0024-emergency-stop.md
-  - Community:
+  - Reference:
+      - Commands: reference/commands.md
+      - Glossary: reference/glossary.md
+      - Design decisions:
+          - decisions/README.md
+          - "0001: Function URLs": decisions/0001-function-urls-instead-of-api-gateway.md
+          - "0002: DynamoDB capacity": decisions/0002-dynamodb-provisioned-capacity.md
+          - "0003: LLM strategy": decisions/0003-llm-strategy-and-call-budget.md
+          - "0004: Terraform state": decisions/0004-terraform-state-s3-native-locking.md
+          - "0005: Python on arm64": decisions/0005-python-313-arm64-minimal-dependencies.md
+          - "0006: Deployer and boundary": decisions/0006-restricted-deployer-and-permissions-boundary.md
+          - "0007: Free API calls only": decisions/0007-free-aws-api-calls-only.md
+          - "0008: CI and Terraform": decisions/0008-ci-ships-code-terraform-ships-infrastructure.md
+          - "0009: Tenant-prefixed keys": decisions/0009-tenant-prefixed-single-table.md
+          - "0010: One incident per service": decisions/0010-one-active-incident-per-service.md
+          - "0011: Evidence and the guard": decisions/0011-evidence-ledger-guard-and-workflow.md
+          - "0012: Approval-gated fixes": decisions/0012-approval-gated-remediation.md
+          - "0013: Evaluation": decisions/0013-evaluating-nightwatch.md
+          - "0014: Memory and postmortems": decisions/0014-memory-postmortems-chatops.md
+          - "0015: Dashboard": decisions/0015-dashboard.md
+          - "0016: Fix as pull request": decisions/0016-fix-as-pull-request.md
+          - "0017: Alert-quality coach": decisions/0017-alert-quality-coach.md
+          - "0018: Predictive warnings": decisions/0018-predictive-warnings.md
+          - "0019: Stakeholder updates": decisions/0019-stakeholder-updates.md
+          - "0020: MCP server": decisions/0020-mcp-server.md
+          - "0021: Cost guardian": decisions/0021-cost-guardian.md
+          - "0022: Slack adapter": decisions/0022-slack-adapter.md
+          - "0023: Connected accounts": decisions/0023-connected-accounts.md
+          - "0024: Emergency stop": decisions/0024-emergency-stop.md
+  - Project:
+      - Changelog: changelog.md
+      - Demo script: demo-script.md
       - Contributing: https://github.com/RaagulGananathan13/nightwatch/blob/main/CONTRIBUTING.md
       - Security policy: https://github.com/RaagulGananathan13/nightwatch/blob/main/SECURITY.md

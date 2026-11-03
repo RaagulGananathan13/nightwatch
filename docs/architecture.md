@@ -4,7 +4,7 @@ Everything is serverless and event-driven, so nothing runs, or costs anything, b
 incidents.
 
 ```mermaid
-flowchart LR
+flowchart TB
     subgraph watched["Watched AWS account: yours, or a connected one"]
         SL["ShopLite demo app<br/>Lambda + DynamoDB"]
         CW["CloudWatch<br/>logs · metrics · alarms"]
@@ -17,7 +17,7 @@ flowchart LR
     ING --> WF
 
     subgraph WF["Step Functions incident workflow"]
-        direction TB
+        direction LR
         INV["Investigate<br/>read-only tools + LLM"] --> REP["Report"] --> WAIT["Wait for approval"]
         WAIT --> FIX["Remediate<br/>runbook"] --> VER["Verify<br/>auto-revert if worse"]
     end

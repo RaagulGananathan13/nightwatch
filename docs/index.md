@@ -1,130 +1,109 @@
 ---
-description: NightWatch is an open-source AI on-call agent for AWS. It diagnoses incidents with cited evidence, and runs a reviewed fix only after a person approves it.
+description: Documentation for NightWatch, an open-source on-call agent for AWS that diagnoses incidents with cited evidence and runs reviewed fixes only after a person approves them.
 hide:
   - navigation
   - toc
 ---
 
-<div class="nw-hero" markdown>
+<div class="nw-home" markdown>
+
+# NightWatch documentation
+
+NightWatch is an open-source on-call agent for services that run on AWS. When a CloudWatch alarm
+fires, it opens an incident, investigates with read-only tools and a large language model, and
+posts a diagnosis to Discord or Slack. Each claim in the diagnosis links to the log line, metric
+or change it came from. If a reviewed runbook applies, NightWatch proposes the fix, runs it only
+after an approver accepts it, verifies the result and writes a postmortem.
+
+NightWatch is self-hosted, runs on AWS always-free services, and is released under the Apache
+License 2.0.
+
+<div class="grid cards nw-start" markdown>
+
+-   [Quickstart](quickstart.md)
+
+    Run the test suite locally, then deploy NightWatch to your own AWS account.
+
+-   [Architecture](architecture.md)
+
+    The components, how an incident moves through them, and the trust boundaries.
+
+-   [Cost and safety](cost-and-safety.md)
+
+    The measured running cost, the emergency stop, and how the repository is protected.
+
+</div>
+
+## At a glance
+
+| Area | Detail |
+|---|---|
+| Input | CloudWatch alarms, logs and metrics, CloudTrail events and deploy history |
+| Platform | AWS Lambda, Step Functions, DynamoDB, EventBridge and S3, within the always-free tier |
+| Language models | Groq or Google Gemini free tiers, or a local model through Ollama |
+| Chat | Discord and Slack, with signed approval buttons and `/nw` commands |
+| Fixes | Four reviewed runbooks: roll back a Lambda alias, reset feature flags, reset Lambda concurrency, raise DynamoDB capacity |
+| Interfaces | A web dashboard behind Cognito sign-in, and an MCP server for AI assistants |
+| Measured cost | About $0.01 a month (October 2026) |
+
+## Evaluation
+
+NightWatch was evaluated against seven faults injected into the ShopLite demo application in
+October 2026. The
+[full results](https://github.com/RaagulGananathan13/nightwatch/blob/main/eval/results.md) list
+every scenario and the scoring rules.
+
+| Measure | Result |
+|---|---|
+| Root cause identified as the first hypothesis | 7 of 7 |
+| Correct fix proposed | 7 of 7 |
+| Hypotheses verified against the evidence | 11 of 11 |
+| Mean time from alarm to diagnosis in chat | 46 seconds |
+| Alerts grouped into incidents | 17 alerts into 7 incidents |
+
+## Documentation
+
+<div class="grid nw-map" markdown>
 
 <div markdown>
 
-<span class="nw-eyebrow">Open source · Apache-2.0 · v1.0</span>
+### Get started
 
-# The AI on-call agent for your AWS account
+- [Quickstart](quickstart.md)
+- [Connect an AWS account](connect.md)
 
-<p class="nw-lede">When an alarm fires, NightWatch gathers the evidence and posts a diagnosis to
-Discord or Slack, with every claim linked to the log line or metric behind it. If a reviewed
-runbook fits, it proposes the fix, and runs it only after a person clicks Approve.</p>
+</div>
 
-<div class="nw-actions" markdown>
+<div markdown>
 
-[Get started](quickstart.md){ .md-button .md-button--primary }
-[View on GitHub :fontawesome-brands-github:](https://github.com/RaagulGananathan13/nightwatch){ .md-button }
+### Concepts
+
+- [Architecture](architecture.md)
+- [Cost and safety](cost-and-safety.md)
+- [Security review](security-review.md)
+
+</div>
+
+<div markdown>
+
+### Reference
+
+- [Commands](reference/commands.md)
+- [Glossary](reference/glossary.md)
+- [Design decisions](decisions/README.md)
+
+</div>
+
+<div markdown>
+
+### Project
+
+- [Changelog](changelog.md)
+- [Contributing](https://github.com/RaagulGananathan13/nightwatch/blob/main/CONTRIBUTING.md)
+- [Security policy](https://github.com/RaagulGananathan13/nightwatch/blob/main/SECURITY.md)
 
 </div>
 
 </div>
-
-<div class="nw-demo">
-  <div class="nw-demo__bar">
-    <img src="assets/logo.svg" alt="">
-    <b>NightWatch</b> in #incidents
-    <span class="nw-demo__tag">Example</span>
-  </div>
-  <div class="nw-demo__body">
-    <p class="nw-demo__title">INC-042 · shoplite-api · errors after a deploy</p>
-    <p>Errors began 40 seconds after version 7 went live. Every new error is the same
-    <code>TimeoutError</code> from the inventory call, and version 6 had none.</p>
-    <ul class="nw-demo__facts">
-      <li>Deploy: version 7, from the Lambda API</li>
-      <li>Errors: 0 to 31 a minute, from CloudWatch</li>
-      <li>Log: 212 matching lines, from CloudWatch Logs</li>
-    </ul>
-    <div class="nw-demo__fix">Proposed fix: roll back to version 6 (runbook <code>rollback</code>)</div>
-    <div class="nw-demo__buttons">
-      <span class="nw-demo__approve">Approve</span>
-      <span>Reject</span>
-    </div>
-  </div>
-</div>
-
-</div>
-
-<div class="nw-stats">
-  <div class="nw-stat"><strong>7 of 7</strong><span>root causes found on real injected faults</span></div>
-  <div class="nw-stat"><strong>46 s</strong><span>mean time from alarm to diagnosis in chat</span></div>
-  <div class="nw-stat"><strong>100%</strong><span>of cited facts checked against the evidence</span></div>
-  <div class="nw-stat"><strong>~1¢</strong><span>a month on AWS, measured, with an emergency stop</span></div>
-</div>
-
-## What NightWatch does
-
-<div class="grid cards" markdown>
-
--   :material-bell-ring-outline:{ .lg .middle } **One incident, not fifty alarms**
-
-    Alarms are grouped per service, deduplicated and protected against flapping. Chat gets one
-    card, and it stays up to date.
-
--   :material-magnify-scan:{ .lg .middle } **A diagnosis with receipts**
-
-    An agent with read-only tools gathers logs, metrics and recent changes. A guard marks any
-    claim the evidence doesn't support.
-
--   :material-shield-check-outline:{ .lg .middle } **Fixes a person approves**
-
-    Runbooks as code, a signed **Approve** click, then verification, with an automatic undo if
-    things get worse.
-
--   :material-history:{ .lg .middle } **Memory and postmortems**
-
-    Similar past incidents inform the next diagnosis, and every resolved incident gets a
-    blameless postmortem.
-
--   :material-piggy-bank-outline:{ .lg .middle } **Free, and built to stay free**
-
-    Always-free AWS services and free LLM tiers, a daily cost check, and an emergency stop at
-    $0.50.
-
--   :material-robot-outline:{ .lg .middle } **Works with your tools**
-
-    Discord and Slack, a web dashboard, `/nw` chat commands, and an MCP server for your own AI
-    assistant.
-
-</div>
-
-## How an incident runs
-
-<ol class="nw-steps">
-  <li><strong>Alarm</strong><span>CloudWatch fires. NightWatch opens one incident for the service and posts a card.</span></li>
-  <li><strong>Investigate</strong><span>Read-only tools gather evidence. The LLM names a root cause, and the guard checks each claim.</span></li>
-  <li><strong>Approve</strong><span>If a runbook fits, the card offers the fix. Nothing runs until an approver clicks.</span></li>
-  <li><strong>Verify and learn</strong><span>NightWatch checks that the fix worked, undoes it if not, and writes the postmortem.</span></li>
-</ol>
-
-The [architecture](architecture.md) page shows every part, and the
-[evaluation](https://github.com/RaagulGananathan13/nightwatch/blob/main/eval/results.md) shows
-how the numbers above were measured.
-
-## Start here
-
-<div class="grid cards nw-links" markdown>
-
--   :material-rocket-launch-outline:{ .lg .middle } [Quickstart](quickstart.md)
-
-    Run it locally in five minutes, then deploy it to your own account.
-
--   :material-sitemap-outline:{ .lg .middle } [Architecture](architecture.md)
-
-    How the parts fit, and where the trust boundaries are.
-
--   :material-piggy-bank-outline:{ .lg .middle } [Cost and safety](cost-and-safety.md)
-
-    What it really costs, the emergency stop, and open-source safety.
-
--   :material-lock-outline:{ .lg .middle } [Security review](security-review.md)
-
-    Every security rule, and where it is enforced.
 
 </div>
