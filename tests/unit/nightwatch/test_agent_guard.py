@@ -96,6 +96,8 @@ def test_verified_hypotheses_come_first() -> None:
 AWS_KEY = "AKIA" + "IOSFODNN7" + "EXAMPLE"
 JWT = ".".join(["ey" + "JhbGciOiJIUzI1NiJ9", "ey" + "JzdWIiOiIxIn0", "c2lnbmF0dXJl"])
 PASSWORD = "hunter2" * 2
+SLACK_TOKEN = "xox" + "b-" + "1" * 12 + "-" + "a" * 24
+SLACK_HOOK = "https://hooks.slack.com/" + "services/T0/B0/" + "x" * 24
 
 
 @pytest.mark.parametrize(
@@ -108,12 +110,21 @@ PASSWORD = "hunter2" * 2
         ("card 4111 1111 1111 1111 declined", "4111 1111 1111 1111", "[card]"),
         ('{"pass' + 'word": "' + PASSWORD + '"}', PASSWORD, "[secret]"),
         ("call +94 77 123 4567", "+94 77 123 4567", "[phone]"),
+        (f"bot {SLACK_TOKEN} posted", SLACK_TOKEN, "[slack-token]"),
+        (f"reply to {SLACK_HOOK}", SLACK_HOOK, "[slack-webhook]"),
     ],
 )
 def test_redaction(text: str, hidden: str, replacement: str) -> None:
     cleaned = redact(text)
     assert hidden not in cleaned
     assert replacement in cleaned
+
+
+def test_addresses_that_identify_no_one_are_kept() -> None:
+    text = "refused 127.0.0.1:5432, 0.0.0.0 bound, metadata 169.254.169.254, client 10.1.2.3"
+    assert redact(text) == (
+        "refused 127.0.0.1:5432, 0.0.0.0 bound, metadata 169.254.169.254, client [ip]"
+    )
 
 
 def test_redaction_keeps_what_diagnosis_needs() -> None:

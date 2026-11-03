@@ -7,14 +7,15 @@ and notes it. A fact found nowhere marks the hypothesis "unverified" and caps it
 so a hallucination can't pass as a finding.
 
 ``redact`` runs before evidence reaches an external LLM. It removes emails, keys, tokens, IP
-addresses and card-like numbers, so customer data and secrets never leave the account.
+addresses and card-like numbers, so customer data and secrets never leave the account. A short
+allow-list keeps addresses that identify no one, such as 127.0.0.1.
 """
 
 from __future__ import annotations
 
 import json
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from nightwatch.agent.models import Diagnosis, Evidence, Hypothesis
@@ -115,13 +116,25 @@ def _text(item: Evidence) -> str:
 
 # ---------------------------------------------------------------------- redaction
 
-_REDACTIONS: list[tuple[re.Pattern[str], str]] = [
+# Addresses that identify no one and are often the whole clue ("connection refused to
+# 127.0.0.1:5432"): loopback, "any", and the instance metadata service. The allow-list the
+# spec asks for; every other IP-shaped string is redacted.
+_HARMLESS_IP = re.compile(r"127(?:\.\d{1,3}){3}|0\.0\.0\.0|169\.254\.169\.254")
+
+
+def _ip(match: re.Match[str]) -> str:
+    return match.group() if _HARMLESS_IP.fullmatch(match.group()) else "[ip]"
+
+
+_REDACTIONS: list[tuple[re.Pattern[str], str | Callable[[re.Match[str]], str]]] = [
     (re.compile(r"\b(?:AKIA|ASIA)[A-Z0-9]{16}\b"), "[aws-key]"),
     (re.compile(r"(?i)aws_secret_access_key\s*[=:]\s*\S+"), "aws_secret_access_key=[secret]"),
     (re.compile(r"\beyJ[\w-]+\.[\w-]+\.[\w-]+"), "[jwt]"),
     (re.compile(r"\bgsk_[A-Za-z0-9]{20,}"), "[api-key]"),
     (re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}"), "[github-token]"),
     (re.compile(r"https://(?:discord|discordapp)\.com/api/webhooks/\S+"), "[discord-webhook]"),
+    (re.compile(r"\bxox[abposr]-[A-Za-z0-9-]{10,}"), "[slack-token]"),
+    (re.compile(r"https://hooks\.slack\.com/\S+"), "[slack-webhook]"),
     (re.compile(r"(?i)\bbearer\s+[\w.~+/-]{16,}=*"), "Bearer [token]"),
     (
         re.compile(
@@ -130,7 +143,7 @@ _REDACTIONS: list[tuple[re.Pattern[str], str]] = [
         r"\1\2[secret]",
     ),
     (re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+"), "[email]"),
-    (re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"), "[ip]"),
+    (re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"), _ip),
     (re.compile(r"\+\d{1,3}[\s-]?\(?\d{2,4}\)?[\s-]?\d{3,4}[\s-]?\d{3,4}\b"), "[phone]"),
 ]
 _CARD = re.compile(r"\b(?:\d[ -]?){13,19}\b")
