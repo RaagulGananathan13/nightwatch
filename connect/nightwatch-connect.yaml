@@ -1,0 +1,93 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  NightWatch connect: a read-only role NightWatch assumes to investigate incidents in this
+  account. It reads metrics, alarms, logs, CloudTrail events and the settings of Lambda
+  functions and DynamoDB tables. It can't change anything, and it can't read table items,
+  objects in buckets or secrets.
+
+Parameters:
+  NightWatchAccountId:
+    Type: String
+    AllowedPattern: "^[0-9]{12}$"
+    Description: The AWS account NightWatch runs in. NightWatch gives it to you with the ExternalId.
+  ExternalId:
+    Type: String
+    MinLength: 16
+    MaxLength: 128
+    AllowedPattern: "^[A-Za-z0-9+=,.@:/_-]+$"
+    Description: The ExternalId NightWatch made for this account. Only requests carrying it can use the role.
+
+Resources:
+  ReadOnlyRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      checkov:
+        skip:
+          - id: CKV_AWS_356
+            comment: The functions, log groups and metrics an incident involves aren't known ahead; every action here only reads
+          - id: CKV_AWS_108
+            comment: Parameters are readable only when tagged nightwatch:readable=true
+          - id: CKV_AWS_60
+            comment: The vendor's account, limited by the ExternalId, is AWS's recommended pattern for third-party access
+    Properties:
+      RoleName: !Sub NightWatchReadOnly-${AWS::Region}
+      Description: NightWatch investigates incidents with this role. It only reads.
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: NightWatchWithItsExternalId
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::${NightWatchAccountId}:root
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                sts:ExternalId: !Ref ExternalId
+      Policies:
+        - PolicyName: nightwatch-read-only
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: MetricsAlarmsAndChanges
+                Effect: Allow
+                Action:
+                  - cloudtrail:LookupEvents
+                  - cloudwatch:DescribeAlarmHistory
+                  - cloudwatch:DescribeAlarms
+                  - cloudwatch:GetMetricStatistics
+                  - cloudwatch:ListMetrics
+                Resource: "*"
+              - Sid: LogQueries
+                Effect: Allow
+                Action:
+                  - logs:DescribeLogGroups
+                  - logs:GetQueryResults
+                  - logs:StartQuery
+                  - logs:StopQuery
+                Resource: "*"
+              - Sid: FunctionAndTableSettings
+                Effect: Allow
+                Action:
+                  - dynamodb:DescribeTable
+                  - dynamodb:ListTables
+                  - lambda:GetAlias
+                  - lambda:GetFunctionConcurrency
+                  - lambda:GetFunctionConfiguration
+                  - lambda:ListFunctions
+                  - lambda:ListVersionsByFunction
+                Resource: "*"
+              - Sid: TaggedParametersOnly
+                Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameterHistory
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/*
+                Condition:
+                  StringEquals:
+                    ssm:resourceTag/nightwatch:readable: "true"
+
+Outputs:
+  RoleArn:
+    Description: Give this to NightWatch, as account.role_arn in services.yaml
+    Value: !GetAtt ReadOnlyRole.Arn
