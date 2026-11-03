@@ -7,7 +7,9 @@ matters (only the two decision shapes are accepted).
 
 from __future__ import annotations
 
+import json
 import re
+import sys
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
@@ -115,3 +117,13 @@ class Investigation(BaseModel):
     similar: list[dict[str, Any]] = Field(default_factory=list)
     # A Terraform setting the evidence shows is too small (spec F10); a fix PR follows.
     config_fix: dict[str, Any] | None = None
+
+
+def schema() -> str:
+    """JSON schema of a stored investigation, its diagnosis included: the contract the dashboard,
+    postmortems and the MCP server read (spec section 16)."""
+    return json.dumps(Investigation.model_json_schema(), indent=2) + "\n"
+
+
+if __name__ == "__main__":
+    sys.stdout.write(schema())

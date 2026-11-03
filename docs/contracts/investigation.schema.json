@@ -1,0 +1,226 @@
+{
+  "$defs": {
+    "Diagnosis": {
+      "properties": {
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "hypotheses": {
+          "items": {
+            "$ref": "#/$defs/Hypothesis"
+          },
+          "maxItems": 5,
+          "minItems": 1,
+          "title": "Hypotheses",
+          "type": "array"
+        },
+        "impact": {
+          "default": "",
+          "title": "Impact",
+          "type": "string"
+        },
+        "suggested_actions": {
+          "items": {
+            "$ref": "#/$defs/SuggestedAction"
+          },
+          "maxItems": 5,
+          "title": "Suggested Actions",
+          "type": "array"
+        },
+        "unknowns": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unknowns",
+          "type": "array"
+        }
+      },
+      "required": [
+        "summary",
+        "hypotheses"
+      ],
+      "title": "Diagnosis",
+      "type": "object"
+    },
+    "Hypothesis": {
+      "properties": {
+        "statement": {
+          "title": "Statement",
+          "type": "string"
+        },
+        "confidence": {
+          "default": 0.5,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "verified": {
+          "default": true,
+          "title": "Verified",
+          "type": "boolean"
+        },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Notes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "statement"
+      ],
+      "title": "Hypothesis",
+      "type": "object"
+    },
+    "SuggestedAction": {
+      "properties": {
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "runbook_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Runbook Id"
+        },
+        "risk": {
+          "default": "medium",
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "title": "Risk",
+          "type": "string"
+        }
+      },
+      "required": [
+        "description"
+      ],
+      "title": "SuggestedAction",
+      "type": "object"
+    }
+  },
+  "description": "The stored result of one investigation: diagnosis plus how it was produced.",
+  "properties": {
+    "diagnosis": {
+      "$ref": "#/$defs/Diagnosis"
+    },
+    "method": {
+      "enum": [
+        "llm",
+        "rules"
+      ],
+      "title": "Method",
+      "type": "string"
+    },
+    "provider": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Provider"
+    },
+    "model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Model"
+    },
+    "llm_calls": {
+      "default": 0,
+      "title": "Llm Calls",
+      "type": "integer"
+    },
+    "tokens": {
+      "default": 0,
+      "title": "Tokens",
+      "type": "integer"
+    },
+    "duration_ms": {
+      "default": 0,
+      "title": "Duration Ms",
+      "type": "integer"
+    },
+    "prompt_version": {
+      "default": "",
+      "title": "Prompt Version",
+      "type": "string"
+    },
+    "fallback_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Fallback Reason"
+    },
+    "evidence": {
+      "items": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "type": "object"
+      },
+      "title": "Evidence",
+      "type": "array"
+    },
+    "similar": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Similar",
+      "type": "array"
+    },
+    "config_fix": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Config Fix"
+    }
+  },
+  "required": [
+    "diagnosis",
+    "method"
+  ],
+  "title": "Investigation",
+  "type": "object"
+}
