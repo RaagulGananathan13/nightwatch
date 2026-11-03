@@ -1,10 +1,10 @@
 # Cost and safety
 
-NightWatch is open source and runs in your own AWS account. This page answers the three
-questions people ask first: what it really costs, what happens if that changes, and whether
-publishing the code puts the account at risk.
+This page describes what NightWatch costs to run, the controls that keep it inside the AWS
+free tier, and how the public repository is protected. NightWatch runs entirely in your own AWS
+account.
 
-## What it costs
+## Measured cost
 
 These figures are measured, not estimated. They are the AWS budget's real spend for the
 services NightWatch uses, across the whole account.
@@ -14,13 +14,13 @@ services NightWatch uses, across the whole account.
 | October 2026 | $0.01 |
 | November 2026, to the 3rd | under $0.01 |
 
-So the honest answer is **about one cent a month**, not exactly zero. Everything else stays
+NightWatch therefore costs **about one cent a month**, not exactly zero. Everything else stays
 inside AWS's always-free allowances, and the LLM runs on Groq's or Gemini's free tier, or on
 Ollama on your own machine.
 
-## Four guard rails
+## Cost controls
 
-Each layer catches what the one before it might miss.
+Four controls work in layers. Each catches what the one before it might miss.
 
 1. **Built to fit the free tiers.** Function URLs instead of API Gateway, provisioned DynamoDB
    capacity, at most 10 alarms. A free-tier guard in Terraform refuses a plan that would go
@@ -66,9 +66,9 @@ make apply     # only if the stop shrank a table: sets its capacity from Terrafo
 The stop doesn't act on forecasts, which are often wrong early in a month. Because AWS updates
 budgets with a delay, a slow leak could pass $0.50 before the stop runs.
 
-## Is open source safe for your AWS account?
+## Public repository and secrets
 
-Yes. The code is public, but nothing that opens your account is.
+The code is public. Nothing that gives access to an AWS account is.
 
 | Public on GitHub | Never in the repository |
 |---|---|
@@ -79,9 +79,9 @@ Yes. The code is public, but nothing that opens your account is.
 Gitleaks scans every pull request and the whole git history. GitHub's secret scanning and push
 protection are on too.
 
-## What contributors can and can't do
+## Contributions and CI
 
-Anyone can fork the repository and open a pull request. Here is what that can reach:
+Anyone can fork the repository and open a pull request. This is what a pull request can reach:
 
 - **CI on a fork's pull request has no secrets and no AWS access.** It runs lint, tests and
   security scans. The Terraform plan job runs only for branches in this repository, and only
@@ -96,7 +96,7 @@ Anyone can fork the repository and open a pull request. Here is what that can re
   users or remove the boundary, and Lambda functions, tables and buckets are limited to
   NightWatch's and ShopLite's own.
 
-What an attacker might try, and why it fails:
+Common attacks, and why each fails:
 
 | Attempt | Why it fails |
 |---|---|
@@ -105,7 +105,7 @@ What an attacker might try, and why it fails:
 | Flooding a public endpoint to run up the bill | Signature checks refuse forged requests in milliseconds. Past 30,000 calls in 5 minutes, the emergency stop switches everything off, and refused calls cost nothing. |
 | Tricking the AI with text in a log line | The investigator only reads. A fix needs a reviewed runbook and a person's **Approve**. See the [security review](security-review.md). |
 
-## If you deploy your own copy
+## Self-hosted deployments
 
 Your copy runs entirely in your own AWS account, with your own secrets and your own budget.
 Nothing connects back to this repository or its owner. Set the budget's email address before
