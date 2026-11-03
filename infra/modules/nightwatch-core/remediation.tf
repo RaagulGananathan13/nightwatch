@@ -61,6 +61,12 @@ data "aws_iam_policy_document" "remediate" {
     sid       = "NightWatchState"
     actions   = ["dynamodb:GetItem", "dynamodb:PutItem"]
     resources = [aws_dynamodb_table.this.arn]
+
+    condition {
+      test     = "ForAllValues:StringLike"
+      variable = "dynamodb:LeadingKeys"
+      values   = local.tenant_keys
+    }
   }
 
   statement {
@@ -213,6 +219,12 @@ data "aws_iam_policy_document" "interactions" {
     sid       = "NightWatchState"
     actions   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:Query", "dynamodb:UpdateItem"]
     resources = [aws_dynamodb_table.this.arn, "${aws_dynamodb_table.this.arn}/index/*"]
+
+    condition {
+      test     = "ForAllValues:StringLike"
+      variable = "dynamodb:LeadingKeys"
+      values   = local.tenant_keys
+    }
   }
 
   statement {

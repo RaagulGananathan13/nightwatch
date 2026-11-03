@@ -34,6 +34,12 @@ data "aws_iam_policy_document" "forecast" {
     sid       = "NightWatchState"
     actions   = ["dynamodb:PutItem", "dynamodb:Query"]
     resources = [aws_dynamodb_table.this.arn]
+
+    condition {
+      test     = "ForAllValues:StringLike"
+      variable = "dynamodb:LeadingKeys"
+      values   = local.tenant_keys
+    }
   }
 
   statement {

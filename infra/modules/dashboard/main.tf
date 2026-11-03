@@ -270,11 +270,22 @@ resource "aws_iam_role_policy" "api" {
   policy = data.aws_iam_policy_document.api.json
 }
 
+locals {
+  # The API reads only its own tenant's items (see nightwatch-core/tenancy.tf).
+  tenant_keys = ["TENANT#${var.tenant_id}", "TENANT#${var.tenant_id}#*"]
+}
+
 data "aws_iam_policy_document" "api" {
   statement {
     sid       = "ReadNightWatchState"
     actions   = ["dynamodb:GetItem", "dynamodb:Query"]
     resources = [var.table_arn, "${var.table_arn}/index/*"]
+
+    condition {
+      test     = "ForAllValues:StringLike"
+      variable = "dynamodb:LeadingKeys"
+      values   = local.tenant_keys
+    }
   }
 
   statement {

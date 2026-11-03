@@ -34,6 +34,12 @@ data "aws_iam_policy_document" "coach" {
     sid       = "NightWatchState"
     actions   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:Query"]
     resources = [aws_dynamodb_table.this.arn, "${aws_dynamodb_table.this.arn}/index/*"]
+
+    condition {
+      test     = "ForAllValues:StringLike"
+      variable = "dynamodb:LeadingKeys"
+      values   = local.tenant_keys
+    }
   }
 
   statement {

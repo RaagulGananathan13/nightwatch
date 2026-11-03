@@ -46,6 +46,12 @@ data "aws_iam_policy_document" "cost" {
       "dynamodb:UpdateItem",
     ]
     resources = [aws_dynamodb_table.this.arn, "${aws_dynamodb_table.this.arn}/index/*"]
+
+    condition {
+      test     = "ForAllValues:StringLike"
+      variable = "dynamodb:LeadingKeys"
+      values   = local.tenant_keys
+    }
   }
 
   statement {
