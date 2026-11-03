@@ -1,7 +1,7 @@
 # Architecture decision records
 
 Each record explains one choice, especially where NightWatch departs from the original
-[build spec](../../NightWatch-SPEC.md), and why. Most departures exist to keep the project at a
+[build spec](https://github.com/RaagulGananathan13/nightwatch/blob/main/NightWatch-SPEC.md), and why. Most departures exist to keep the project at a
 true $0 per month or to close a gap found while reviewing the spec.
 
 | # | Decision | Status |

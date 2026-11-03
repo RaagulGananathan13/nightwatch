@@ -54,3 +54,5 @@ backend.hcl
 
 # Copied in at build time from eval/results.json
 dashboard/public/eval-results.json
+# The docs site, built by mkdocs
+site/

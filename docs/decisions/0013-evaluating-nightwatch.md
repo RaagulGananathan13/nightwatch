@@ -14,7 +14,7 @@ invent them.
 ## Decision
 
 1. **Seven scenarios, each a real fault in the live stack** (see the
-   [chaos lab](../../chaos/README.md)):
+   [chaos lab](https://github.com/RaagulGananathan13/nightwatch/blob/main/chaos/README.md)):
    - a buggy commit;
    - a bad feature flag;
    - a slow dependency;

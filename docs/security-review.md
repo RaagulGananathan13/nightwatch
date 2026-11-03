@@ -27,7 +27,7 @@ met and where to check it.
 |---|---|
 | Unit tests for tools, runbooks, the guard, redaction and dedupe | Met: 322 tests. LLM calls use `FakeProvider`. |
 | Contract tests: the diagnosis schema, and Discord and Slack signatures | Met. The investigation schema (diagnosis included) is now committed in `docs/contracts/` and tested against the code (new). |
-| Integration: deploy a dev stack and run a chaos scenario end to end | Met from a laptop: `make chaos`, `make eval` (7/7, [results](../eval/results.md)) and the live runs in the README. Not yet a manual GitHub Actions workflow; see below. |
+| Integration: deploy a dev stack and run a chaos scenario end to end | Met from a laptop: `make chaos`, `make eval` (7/7, [results](https://github.com/RaagulGananathan13/nightwatch/blob/main/eval/results.md)) and the live runs in the README. Not yet a manual GitHub Actions workflow; see below. |
 | Security tests: prompt-injection fixtures | Met: the two injection tests above. |
 | 80% coverage on `agent`, `remediation`, `common` | Met: 89.4%, 84.8% and 94.9%. |
 | Static checks | Met: ruff; mypy strict everywhere (the spec asks only for `common` and `agent`); Checkov; Bandit; pip-audit; Gitleaks. |

@@ -1,0 +1,45 @@
+site_name: NightWatch
+site_description: An open-source AI on-call agent for AWS, at $0 a month
+site_url: https://raagulgananathan13.github.io/nightwatch/
+repo_url: https://github.com/RaagulGananathan13/nightwatch
+repo_name: RaagulGananathan13/nightwatch
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - search.highlight
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/weather-night
+        name: Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/weather-sunny
+        name: Light mode
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+nav:
+  - Home: index.md
+  - Quickstart: quickstart.md
+  - Architecture: architecture.md
+  - Connect an account: connect.md
+  - Security review: security-review.md
+  - Demo script: demo-script.md
+  - Design decisions: decisions/README.md
