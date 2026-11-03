@@ -70,7 +70,23 @@ every scenario and the scoring rules.
 ### Get started
 
 - [Quickstart](quickstart.md)
+- [Prerequisites](prerequisites.md)
+- [Deploy to AWS](deploy.md)
+- [Set up Discord and Slack](chat.md)
+- [Dashboard and MCP server](dashboard-and-mcp.md)
+
+</div>
+
+<div markdown>
+
+### Guides
+
+- [Watch your own service](watch-your-service.md)
 - [Connect an AWS account](connect.md)
+- [Day-to-day operation](operations.md)
+- [Chaos testing](chaos.md)
+- [Upgrade and tear down](upgrade-and-teardown.md)
+- [Troubleshooting](troubleshooting.md)
 
 </div>
 
@@ -88,7 +104,9 @@ every scenario and the scoring rules.
 
 ### Reference
 
+- [Configuration](reference/configuration.md)
 - [Commands](reference/commands.md)
+- [Runbooks](reference/runbooks.md)
 - [Glossary](reference/glossary.md)
 - [Design decisions](decisions/README.md)
 

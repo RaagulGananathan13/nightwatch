@@ -308,7 +308,7 @@
 /* The documentation map: four columns of links. */
 .md-typeset .grid.nw-map {
   gap: 1.2rem;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .md-typeset .nw-map h3 {

@@ -12,8 +12,17 @@ Notable changes to NightWatch. Each version is a git tag and matches one build p
   instead of $0.
 - **Project policies.** A security policy with private vulnerability reporting, and a
   contributing guide.
-- **Documentation.** A reorganised site, with this changelog, a [commands](reference/commands.md)
-  reference and a [glossary](reference/glossary.md).
+- **Documentation.** The full deployment guide is now on this site, with new pages for
+  [prerequisites](prerequisites.md), [chat setup](chat.md),
+  [watching your own service](watch-your-service.md), [operation](operations.md),
+  [chaos testing](chaos.md), [upgrades](upgrade-and-teardown.md),
+  [troubleshooting](troubleshooting.md), [configuration](reference/configuration.md),
+  [runbooks](reference/runbooks.md), [commands](reference/commands.md) and a
+  [glossary](reference/glossary.md). Commands that store secrets are given for PowerShell and
+  bash.
+- **Opt-in settings.** The GitHub repository, Discord and Slack settings no longer default to the
+  reference deployment's values. GitHub Actions roles are created only when
+  `github_subject_prefix` is set, so a new deployment never trusts someone else's repository.
 
 ## 1.0 (2026-11-03)
 

@@ -1,4 +1,4 @@
-# Security review (Phase 9)
+# Security review
 
 A check of NightWatch against the spec's security rules (section 11) and quality rules
 (section 16), on 2026-11-02, at v0.9 plus this review's fixes. Each row says how the rule is
@@ -17,7 +17,7 @@ met and where to check it.
 | Zero data egress option | The `ollama:` provider runs a local model through Ollama's OpenAI-compatible API. | `nightwatch/agent/providers/openai_compat.py` |
 | Chat requests are signed | Discord requests need a valid Ed25519 signature. Slack requests need a valid HMAC-SHA256 signature. Both are refused after 5 minutes. | `test_approvals.py`, `test_slack.py` |
 | Only approvers decide | Each service lists its Discord and Slack approvers. Every click and command is checked against them, and refusals are audited. | `ServiceInfo.can_approve` |
-| Secrets live in SSM only | Tokens and webhooks are SecureStrings that the owner stores by hand. Terraform only names them, so they never reach state or outputs. Chat clients never put URLs or tokens in errors or logs. Gitleaks scans the whole git history in CI. | `infra/README.md`, `.github/workflows/ci.yml` |
+| Secrets live in SSM only | Tokens and webhooks are SecureStrings that the owner stores by hand. Terraform only names them, so they never reach state or outputs. Chat clients never put URLs or tokens in errors or logs. Gitleaks scans the whole git history in CI. | [Deploy to AWS](deploy.md#4-store-your-secrets), `.github/workflows/ci.yml` |
 | Kill switch | `/nightwatch/kill_switch` stops every fix. If it can't be read, it counts as on. | spec F14, `calls.kill_switch_on` |
 | Tenant isolation (section 13) | Every key starts with `TENANT#<tenant>`. Each role's table access is held to that prefix by a `dynamodb:LeadingKeys` condition (new), and no role may `Scan`. | `tenancy.tf`, `test_tenancy.py` (new) |
 
