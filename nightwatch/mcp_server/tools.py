@@ -20,6 +20,7 @@ from typing import Any
 
 from botocore.exceptions import BotoCoreError, ClientError
 
+from nightwatch.agent.accounts import clients_for
 from nightwatch.agent.evidence import load_evidence
 from nightwatch.agent.guard import redact
 from nightwatch.agent.handler import github_get
@@ -247,6 +248,7 @@ def investigator_tool(
         service=service,
         now=moment,
         store=store,
+        aws=clients_for(service),
         sleep=time.sleep,
         http_get=github_get,
     )

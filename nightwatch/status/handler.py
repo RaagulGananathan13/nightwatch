@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from nightwatch.agent.accounts import llm_keys
 from nightwatch.agent.guard import redact
 from nightwatch.agent.providers import build_chain
 from nightwatch.agent.providers.base import LLMError, LLMUnavailableError
@@ -40,7 +41,8 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         reply.edit({"content": "NightWatch can't find that incident any more."})
         return {"drafted": False}
     service = service_info(incident.service)
-    drafts = write(incident, service, _ask_model(settings, facts(incident, service)))
+    reply_text = _ask_model(settings, facts(incident, service), llm_keys(settings, service))
+    drafts = write(incident, service, reply_text)
     now = utcnow()
     draft = {
         "id": new_ulid(now),
@@ -72,12 +74,12 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     return {"draft_id": draft["id"], "method": drafts.method}
 
 
-def _ask_model(settings: Settings, text: str) -> tuple[str, str] | None:
+def _ask_model(settings: Settings, text: str, keys: dict[str, str]) -> tuple[str, str] | None:
     """One LLM call: its text and model name. None (so rules write) on any problem."""
     chain = build_chain(
         settings.llm_providers,
         _secrets.get,
-        {"groq": settings.groq_key_param, "gemini": settings.gemini_key_param},
+        keys,
         DailyBudget(settings.table_name, settings.tenant_id, settings.llm_daily_requests),
     )
     if chain is None:

@@ -138,7 +138,7 @@ def drafted(env: dict[str, Any], monkeypatch: pytest.MonkeyPatch) -> tuple[str, 
     """Run the drafting Lambda (rules, no LLM). Returns the draft id and the edited reply."""
     edits: list[dict[str, Any]] = []
     monkeypatch.setattr(InteractionReply, "edit", lambda self, message: edits.append(message))
-    monkeypatch.setattr(updates_lambda, "_ask_model", lambda settings, text: None)
+    monkeypatch.setattr(updates_lambda, "_ask_model", lambda *args: None)
     job = {"application_id": "1", "token": TOKEN, "incident_id": env["incident"].id, "user": "R"}
     out = updates_lambda.handler(job, None)
     return out["draft_id"], edits[0]

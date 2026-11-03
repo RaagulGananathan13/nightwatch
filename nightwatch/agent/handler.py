@@ -15,6 +15,7 @@ from typing import Any
 
 from botocore.exceptions import BotoCoreError, ClientError
 
+from nightwatch.agent.accounts import clients_for, llm_keys
 from nightwatch.agent.evidence import EvidenceLedger
 from nightwatch.agent.loop import Budget, Investigator
 from nightwatch.agent.models import Evidence, Investigation
@@ -47,18 +48,20 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
 
     store.set_investigation(incident_id, "running")
     audit.record("investigation_started", incident_id)
+    service = service_info(incident.service)
     ctx = ToolContext(
         incident=incident,
-        service=service_info(incident.service),
+        service=service,
         now=utcnow(),
         store=store,
+        aws=clients_for(service),
         sleep=time.sleep,
         http_get=github_get,
     )
     llm = build_chain(
         settings.llm_providers,
         _secrets.get,
-        {"groq": settings.groq_key_param, "gemini": settings.gemini_key_param},
+        llm_keys(settings, service),
         DailyBudget(settings.table_name, settings.tenant_id, settings.llm_daily_requests),
     )
     ledger = EvidenceLedger(store, incident_id)
@@ -118,6 +121,9 @@ def propose_fix(
 ) -> dict[str, Any] | None:
     """Store a proposed fix if a runbook matches the evidence. Never fails the investigation."""
     incident = ctx.incident
+    if ctx.service.account:  # a connected account is only read (spec section 13)
+        audit.record("remediation_skipped", incident.id, why="connected accounts are read-only")
+        return None
     try:
         proposal = plan(evidence, result.diagnosis, ctx.service, incident.opened_at, ctx.aws)
     except (BotoCoreError, ClientError, CallError, KeyError, ValueError) as exc:

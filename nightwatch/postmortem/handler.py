@@ -16,10 +16,12 @@ from typing import Any
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 
+from nightwatch.agent.accounts import llm_keys
 from nightwatch.agent.evidence import load_evidence
 from nightwatch.agent.providers import build_chain
 from nightwatch.agent.providers.base import LLMError, LLMUnavailableError
 from nightwatch.agent.providers.chain import DailyBudget
+from nightwatch.agent.services import service_info
 from nightwatch.chat.cards import incident_message
 from nightwatch.chat.discord import DiscordError, webhook_from_ssm
 from nightwatch.chat.slack import bot_from_ssm as slack_bot
@@ -84,7 +86,7 @@ def _lessons(settings: Settings, facts: Facts) -> Lessons | None:
     chain = build_chain(
         settings.llm_providers,
         _secrets.get,
-        {"groq": settings.groq_key_param, "gemini": settings.gemini_key_param},
+        llm_keys(settings, service_info(facts.incident.service)),
         DailyBudget(settings.table_name, settings.tenant_id, settings.llm_daily_requests),
     )
     if chain is None:

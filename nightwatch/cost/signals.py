@@ -51,7 +51,8 @@ def daily(
     cloudwatch: Any, lambda_: Any, dynamodb: Any, now: datetime, own_table: str
 ) -> list[Signal]:
     """The morning check: usage jumps, free tiers and provisioned capacity."""
-    services = list(load_services().values())
+    # Usage and capacity in NightWatch's own account; connected accounts are watched, not billed.
+    services = [s for s in load_services().values() if not s.account]
     if not services:
         return []
     usage = {s.name: service_usage(cloudwatch, lambda_, s, now) for s in services}

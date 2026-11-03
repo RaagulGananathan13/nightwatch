@@ -11,6 +11,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
+from nightwatch.agent.accounts import clients_for, llm_keys
 from nightwatch.agent.evidence import EvidenceLedger
 from nightwatch.agent.handler import github_get
 from nightwatch.agent.loop import Budget, Investigator
@@ -59,6 +60,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         service=service,
         now=now,
         store=store,
+        aws=clients_for(service),
         sleep=time.sleep,
         http_get=github_get,
         question=question,
@@ -66,7 +68,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     llm = build_chain(
         settings.llm_providers,
         _secrets.get,
-        {"groq": settings.groq_key_param, "gemini": settings.gemini_key_param},
+        llm_keys(settings, service),
         DailyBudget(settings.table_name, settings.tenant_id, settings.llm_daily_requests),
     )
     try:

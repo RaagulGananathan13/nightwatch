@@ -71,6 +71,8 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         concurrency(metrics, lambda_, now),
     ]
     for service in load_services().values():
+        if service.account:  # its metrics live in its own account (spec section 13)
+            continue
         if service.slo and service.function:
             forecasts.append(error_budget(service.name, service.function, service.slo, metrics))
         for table in service.dynamodb_tables:
