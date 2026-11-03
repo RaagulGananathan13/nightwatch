@@ -42,6 +42,15 @@ met and where to check it.
    which are often the clue ("connection refused to 127.0.0.1:5432").
 4. **The planner had no injection test, and the diagnosis schema no contract.** Both now do.
 
+## Checked live
+
+On 2026-11-03, after the tenant conditions were applied, every fenced role ran normally with no
+`AccessDenied`:
+- the forecast, the cost check and the MCP server;
+- a bad-deploy chaos run, INC-021, from ingest through the investigation, a person's
+  **Approve**, the rollback and its verification (errors 0, 0, 0 after the fix), to the
+  postmortem.
+
 ## Deliberate deviations
 
 - **The deployer user has an access key.** The spec says "no long-lived access keys anywhere".
