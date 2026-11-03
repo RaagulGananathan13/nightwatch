@@ -1,45 +1,137 @@
 site_name: NightWatch
-site_description: An open-source AI on-call agent for AWS, at $0 a month
+site_description: An open-source AI on-call agent for AWS that runs on free tiers
+site_author: NightWatch contributors
 site_url: https://raagulgananathan13.github.io/nightwatch/
 repo_url: https://github.com/RaagulGananathan13/nightwatch
-repo_name: RaagulGananathan13/nightwatch
+repo_name: nightwatch
 edit_uri: edit/main/docs/
+copyright: Copyright &copy; 2026 NightWatch contributors · Apache-2.0
 
 theme:
   name: material
+  custom_dir: overrides # the announcement bar
+  logo: assets/logo.svg
+  favicon: assets/logo.svg
+  font: false # Inter and JetBrains Mono load from extra.css, with every weight it uses
+  icon:
+    repo: fontawesome/brands/github
+    edit: material/pencil-outline
   features:
-    - navigation.sections
-    - navigation.top
+    - announce.dismiss
+    - content.action.edit
+    - content.code.annotate
     - content.code.copy
+    - content.tabs.link
+    - content.tooltips
+    - navigation.footer
+    - navigation.indexes
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.sections
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.top
+    - navigation.tracking
     - search.highlight
+    - search.share
+    - search.suggest
+    - toc.follow
   palette:
+    - media: "(prefers-color-scheme)"
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-auto
+        name: Use light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      toggle:
-        icon: material/weather-night
-        name: Dark mode
-    - media: "(prefers-color-scheme: dark)"
-      scheme: slate
+      primary: custom
+      accent: custom
       toggle:
         icon: material/weather-sunny
-        name: Light mode
+        name: Use dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Follow the system setting
+
+extra_css:
+  - stylesheets/extra.css
+
+extra:
+  generator: false
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/RaagulGananathan13/nightwatch
+      name: NightWatch on GitHub
 
 markdown_extensions:
+  - abbr
   - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
   - tables
   - toc:
+      title: On this page
       permalink: true
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
           class: mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
 
 nav:
   - Home: index.md
-  - Quickstart: quickstart.md
-  - Architecture: architecture.md
-  - Connect an account: connect.md
-  - Security review: security-review.md
-  - Demo script: demo-script.md
-  - Design decisions: decisions/README.md
+  - Get started:
+      - Quickstart: quickstart.md
+      - Connect an account: connect.md
+      - Demo script: demo-script.md
+  - Concepts:
+      - Architecture: architecture.md
+      - Cost and safety: cost-and-safety.md
+      - Security review: security-review.md
+  - Design decisions:
+      - decisions/README.md
+      - 0001 · Function URLs: decisions/0001-function-urls-instead-of-api-gateway.md
+      - 0002 · DynamoDB capacity: decisions/0002-dynamodb-provisioned-capacity.md
+      - 0003 · LLM strategy: decisions/0003-llm-strategy-and-call-budget.md
+      - 0004 · Terraform state: decisions/0004-terraform-state-s3-native-locking.md
+      - 0005 · Python on arm64: decisions/0005-python-313-arm64-minimal-dependencies.md
+      - 0006 · Deployer and boundary: decisions/0006-restricted-deployer-and-permissions-boundary.md
+      - 0007 · Free API calls only: decisions/0007-free-aws-api-calls-only.md
+      - 0008 · CI and Terraform: decisions/0008-ci-ships-code-terraform-ships-infrastructure.md
+      - 0009 · Tenant-prefixed keys: decisions/0009-tenant-prefixed-single-table.md
+      - 0010 · One incident per service: decisions/0010-one-active-incident-per-service.md
+      - 0011 · Evidence and the guard: decisions/0011-evidence-ledger-guard-and-workflow.md
+      - 0012 · Approval-gated fixes: decisions/0012-approval-gated-remediation.md
+      - 0013 · Evaluation: decisions/0013-evaluating-nightwatch.md
+      - 0014 · Memory and postmortems: decisions/0014-memory-postmortems-chatops.md
+      - 0015 · Dashboard: decisions/0015-dashboard.md
+      - 0016 · Fix as pull request: decisions/0016-fix-as-pull-request.md
+      - 0017 · Alert-quality coach: decisions/0017-alert-quality-coach.md
+      - 0018 · Predictive warnings: decisions/0018-predictive-warnings.md
+      - 0019 · Stakeholder updates: decisions/0019-stakeholder-updates.md
+      - 0020 · MCP server: decisions/0020-mcp-server.md
+      - 0021 · Cost guardian: decisions/0021-cost-guardian.md
+      - 0022 · Slack adapter: decisions/0022-slack-adapter.md
+      - 0023 · Connected accounts: decisions/0023-connected-accounts.md
+      - 0024 · Emergency stop: decisions/0024-emergency-stop.md
+  - Community:
+      - Contributing: https://github.com/RaagulGananathan13/nightwatch/blob/main/CONTRIBUTING.md
+      - Security policy: https://github.com/RaagulGananathan13/nightwatch/blob/main/SECURITY.md

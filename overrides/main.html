@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+
+{# The dismissible bar above the header: one line about what's new. #}
+{% block announce %}
+  <strong>New:</strong> an emergency stop switches NightWatch off before it can cost money.
+  <a href="{{ 'cost-and-safety/' | url }}">See how it works</a>
+{% endblock %}

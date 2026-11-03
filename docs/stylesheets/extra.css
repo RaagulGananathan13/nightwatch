@@ -1,0 +1,691 @@
+/* NightWatch docs theme: quiet neutral surfaces, one indigo accent, an amber moon.
+   Loaded after Material's own CSS (mkdocs.yml, extra_css), so these rules win. */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400..700&family=JetBrains+Mono:wght@400..600&display=swap");
+
+:root {
+  --md-text-font: "Inter";
+  --md-code-font: "JetBrains Mono";
+  --nw-radius: 10px;
+  --nw-radius-lg: 14px;
+}
+
+/* ------------------------------------------------------------------ colours */
+
+[data-md-color-scheme="default"] {
+  --nw-bg: #ffffff;
+  --nw-surface: #f6f7f9;
+  --nw-surface-2: #eceef3;
+  --nw-border: #e3e5eb;
+  --nw-border-strong: #c9cdd8;
+  --nw-text: #12141a;
+  --nw-muted: #5a6072;
+  --nw-accent: #4338ca;
+  --nw-accent-strong: #3730a3;
+  --nw-accent-soft: rgba(67, 56, 202, 0.08);
+  --nw-button: #4338ca;
+  --nw-button-hover: #3730a3;
+  --nw-amber: #d97706;
+  --nw-glow: rgba(79, 70, 229, 0.14);
+  --nw-banner: #1e1b4b;
+  --nw-shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 16px 40px -18px rgba(16, 24, 40, 0.22);
+
+  --md-default-bg-color: var(--nw-bg);
+  --md-default-fg-color: rgba(18, 20, 26, 0.9);
+  --md-default-fg-color--light: rgba(18, 20, 26, 0.62);
+  --md-default-fg-color--lighter: rgba(18, 20, 26, 0.34);
+  --md-default-fg-color--lightest: rgba(18, 20, 26, 0.08);
+}
+
+[data-md-color-scheme="slate"] {
+  --md-hue: 230;
+  --nw-bg: #0b0d13;
+  --nw-surface: #12151e;
+  --nw-surface-2: #1a1e2a;
+  --nw-border: #232837;
+  --nw-border-strong: #363c52;
+  --nw-text: #eceef4;
+  --nw-muted: #9ca2b5;
+  --nw-accent: #a5b4fc;
+  --nw-accent-strong: #c7d2fe;
+  --nw-accent-soft: rgba(165, 180, 252, 0.1);
+  --nw-button: #5b5bd6;
+  --nw-button-hover: #6e6ee6;
+  --nw-amber: #fbbf24;
+  --nw-glow: rgba(99, 102, 241, 0.2);
+  --nw-banner: #1e1b4b;
+  --nw-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 18px 48px -18px rgba(0, 0, 0, 0.7);
+
+  --md-default-bg-color: var(--nw-bg);
+  --md-default-bg-color--light: rgba(11, 13, 19, 0.54);
+  --md-default-bg-color--lighter: rgba(11, 13, 19, 0.26);
+  --md-default-bg-color--lightest: rgba(11, 13, 19, 0.07);
+  --md-default-fg-color: rgba(236, 238, 244, 0.88);
+  --md-default-fg-color--light: rgba(236, 238, 244, 0.62);
+  --md-default-fg-color--lighter: rgba(236, 238, 244, 0.34);
+  --md-default-fg-color--lightest: rgba(236, 238, 244, 0.08);
+}
+
+[data-md-color-scheme] {
+  /* The header and tabs share the page's background, like most product docs. */
+  --md-primary-fg-color: var(--nw-bg);
+  --md-primary-fg-color--light: var(--nw-bg);
+  --md-primary-fg-color--dark: var(--nw-surface);
+  --md-primary-bg-color: var(--nw-text);
+  --md-primary-bg-color--light: var(--nw-muted);
+  --md-accent-fg-color: var(--nw-accent-strong);
+  --md-accent-fg-color--transparent: var(--nw-accent-soft);
+  --md-accent-bg-color: var(--nw-bg);
+  --md-typeset-a-color: var(--nw-accent);
+  --md-typeset-table-color: var(--nw-border);
+  --md-code-bg-color: var(--nw-surface);
+  --md-footer-bg-color: var(--nw-surface);
+  --md-footer-bg-color--dark: var(--nw-surface);
+  --md-footer-fg-color: var(--nw-text);
+  --md-footer-fg-color--light: var(--nw-muted);
+  --md-footer-fg-color--lighter: var(--nw-muted);
+}
+
+::selection {
+  background-color: var(--nw-accent-soft);
+}
+
+/* ------------------------------------------------------- header, tabs, search */
+
+.md-banner {
+  background-color: var(--nw-banner);
+  color: #e0e7ff;
+}
+
+.md-banner a {
+  color: #ffffff;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.md-header,
+.md-header--shadow {
+  border-bottom: 1px solid var(--nw-border);
+  box-shadow: none;
+}
+
+.md-header__button.md-logo img,
+.md-header__button.md-logo svg {
+  height: 1.5rem;
+}
+
+.md-header__topic:first-child {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+@media screen and (min-width: 76.25em) {
+  /* Tabs show at this width: one border under them, none between them and the header. */
+  .md-header,
+  .md-header--shadow {
+    border-bottom: 0;
+  }
+
+  .md-tabs {
+    border-bottom: 1px solid var(--nw-border);
+  }
+}
+
+.md-tabs__link {
+  color: var(--nw-muted);
+  font-size: 0.7rem;
+  font-weight: 500;
+  opacity: 1;
+}
+
+.md-tabs__link:hover,
+.md-tabs__item--active .md-tabs__link {
+  color: var(--nw-text);
+}
+
+.md-tabs__item--active {
+  box-shadow: inset 0 -2px 0 var(--nw-accent);
+}
+
+@media screen and (min-width: 60em) {
+  .md-search__form {
+    background-color: var(--nw-surface);
+    border: 1px solid var(--nw-border);
+    border-radius: 8px;
+  }
+
+  .md-search__form:hover {
+    background-color: var(--nw-surface-2);
+  }
+
+  .md-search__input::placeholder,
+  .md-search__input ~ .md-search__icon {
+    color: var(--nw-muted);
+  }
+
+  [data-md-toggle="search"]:checked ~ .md-header .md-search__form {
+    background-color: var(--md-default-bg-color);
+    border-radius: 8px 8px 0 0;
+  }
+
+  .md-search__output {
+    border-radius: 0 0 8px 8px;
+  }
+}
+
+/* ------------------------------------------------------------- navigation */
+
+.md-nav {
+  font-size: 0.7rem;
+}
+
+.md-nav__link {
+  color: var(--md-default-fg-color--light);
+}
+
+.md-nav__item .md-nav__link--active {
+  color: var(--nw-accent);
+  font-weight: 600;
+}
+
+.md-nav__title {
+  color: var(--nw-text);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------- typography */
+
+.md-typeset {
+  line-height: 1.7;
+}
+
+.md-typeset h1 {
+  color: var(--nw-text);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin-bottom: 0.9em;
+}
+
+.md-typeset h2 {
+  color: var(--nw-text);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  margin-top: 2em;
+}
+
+.md-typeset h3 {
+  color: var(--nw-text);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.md-typeset a {
+  font-weight: 500;
+}
+
+.md-typeset a:not(.md-button):hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.md-typeset code {
+  border-radius: 6px;
+}
+
+.md-typeset :not(pre) > code {
+  border: 1px solid var(--nw-border);
+  padding: 0.05em 0.35em;
+}
+
+.md-typeset pre > code {
+  border: 1px solid var(--nw-border);
+  border-radius: var(--nw-radius);
+}
+
+.md-typeset table:not([class]) {
+  border: 1px solid var(--nw-border);
+  border-radius: var(--nw-radius);
+  font-size: 0.72rem;
+}
+
+.md-typeset table:not([class]) th {
+  background-color: var(--nw-surface);
+  color: var(--nw-text);
+  font-weight: 600;
+}
+
+.md-typeset table:not([class]) th,
+.md-typeset table:not([class]) td {
+  padding: 0.75em 1em;
+}
+
+.md-typeset .admonition,
+.md-typeset details {
+  border-radius: var(--nw-radius);
+  border-width: 1px;
+  box-shadow: none;
+  font-size: 0.74rem;
+}
+
+.md-typeset hr {
+  border-bottom-color: var(--nw-border);
+}
+
+/* ---------------------------------------------------------------- buttons */
+
+.md-typeset .md-button {
+  background-color: var(--md-default-bg-color);
+  border: 1px solid var(--nw-border-strong);
+  border-radius: 8px;
+  color: var(--nw-text);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.6em 1.25em;
+}
+
+.md-typeset .md-button:hover,
+.md-typeset .md-button:focus {
+  background-color: var(--nw-surface);
+  border-color: var(--nw-border-strong);
+  color: var(--nw-text);
+}
+
+.md-typeset .md-button--primary,
+.md-typeset .md-button--primary:hover,
+.md-typeset .md-button--primary:focus {
+  border-color: transparent;
+  color: #ffffff;
+}
+
+.md-typeset .md-button--primary {
+  background-color: var(--nw-button);
+}
+
+.md-typeset .md-button--primary:hover,
+.md-typeset .md-button--primary:focus {
+  background-color: var(--nw-button-hover);
+}
+
+.md-typeset .md-button .twemoji {
+  margin-left: 0.3em;
+}
+
+/* ------------------------------------------------------------------ cards */
+
+.md-typeset .grid.cards > ul > li {
+  background-color: var(--md-default-bg-color);
+  border: 1px solid var(--nw-border);
+  border-radius: var(--nw-radius-lg);
+  padding: 1rem 1.1rem;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+
+.md-typeset .grid.cards > ul > li:hover,
+.md-typeset .grid.cards > ul > li:focus-within {
+  border-color: var(--nw-border-strong);
+  box-shadow: var(--nw-shadow);
+  transform: translateY(-1px);
+}
+
+.md-typeset .grid.cards .lg {
+  color: var(--nw-accent);
+}
+
+.md-typeset .grid.cards strong {
+  color: var(--nw-text);
+  font-weight: 600;
+}
+
+.md-typeset .grid.cards p {
+  color: var(--md-default-fg-color--light);
+  font-size: 0.74rem;
+  line-height: 1.6;
+}
+
+.md-typeset .grid.cards p:first-child {
+  font-size: 0.8rem;
+}
+
+/* The "Start here" cards: four in a row, and the whole card is the link. */
+.md-typeset .grid.nw-links {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.md-typeset .nw-links > ul > li {
+  position: relative;
+}
+
+.md-typeset .nw-links > ul > li a::after {
+  border-radius: inherit;
+  content: "";
+  inset: 0;
+  position: absolute;
+}
+
+.md-typeset .nw-links > ul > li a {
+  color: var(--nw-text);
+  font-weight: 600;
+}
+
+.md-typeset .nw-links > ul > li:hover a {
+  color: var(--nw-accent);
+  text-decoration: none;
+}
+
+/* ----------------------------------------------------------- landing page */
+
+.md-content:has(.nw-hero) .md-content__button {
+  display: none;
+}
+
+.nw-hero {
+  align-items: center;
+  display: grid;
+  gap: 2.4rem;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  isolation: isolate;
+  padding: 2.4rem 0 2rem;
+  position: relative;
+}
+
+.nw-hero::before {
+  /* Both glows fade out before the edges, so no edge shows. */
+  background:
+    radial-gradient(40% 45% at 30% 50%, var(--nw-glow), transparent 70%),
+    radial-gradient(25% 40% at 80% 45%, rgba(245, 158, 11, 0.08), transparent 70%);
+  content: "";
+  inset: -1rem -2rem 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: -1;
+}
+
+.nw-eyebrow {
+  align-items: center;
+  background-color: var(--md-default-bg-color);
+  border: 1px solid var(--nw-border);
+  border-radius: 999px;
+  color: var(--nw-muted);
+  display: inline-flex;
+  font-size: 0.66rem;
+  font-weight: 600;
+  gap: 0.5em;
+  padding: 0.3em 0.9em;
+}
+
+.nw-eyebrow::before {
+  background-color: var(--nw-amber);
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+  content: "";
+  height: 0.45em;
+  width: 0.45em;
+}
+
+.md-typeset .nw-hero h1 {
+  color: var(--nw-text);
+  font-size: 2.5rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.08;
+  margin: 0.8rem 0 1rem;
+}
+
+.md-typeset .nw-hero h1 .headerlink {
+  display: none;
+}
+
+.md-typeset .nw-lede {
+  color: var(--nw-muted);
+  font-size: 0.9rem;
+  line-height: 1.65;
+  margin: 0 0 1.5rem;
+  max-width: 34rem;
+}
+
+.md-typeset .nw-actions p {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 0;
+}
+
+.md-typeset .nw-actions .md-button {
+  margin: 0;
+}
+
+/* An example chat card, drawn in HTML and CSS. */
+.md-typeset .nw-demo {
+  background-color: var(--md-default-bg-color);
+  border: 1px solid var(--nw-border);
+  border-radius: var(--nw-radius-lg);
+  box-shadow: var(--nw-shadow);
+  font-size: 0.68rem;
+  line-height: 1.55;
+  padding: 1rem 1.1rem 1.1rem;
+}
+
+[data-md-color-scheme="slate"] .md-typeset .nw-demo {
+  background-color: var(--nw-surface);
+}
+
+.md-typeset .nw-demo__bar {
+  align-items: center;
+  color: var(--nw-muted);
+  display: flex;
+  font-size: 0.62rem;
+  gap: 0.5rem;
+  margin-bottom: 0.8rem;
+}
+
+.md-typeset .nw-demo__bar img {
+  border-radius: 6px;
+  height: 1.3rem;
+  width: 1.3rem;
+}
+
+.md-typeset .nw-demo__bar b {
+  color: var(--nw-text);
+  font-weight: 600;
+}
+
+.md-typeset .nw-demo__tag {
+  border: 1px solid var(--nw-border);
+  border-radius: 999px;
+  margin-left: auto;
+  padding: 0 0.55rem;
+}
+
+.md-typeset .nw-demo__body {
+  border-left: 3px solid #e5484d;
+  padding-left: 0.8rem;
+}
+
+.md-typeset .nw-demo__title {
+  color: var(--nw-text);
+  font-size: 0.78rem;
+  font-weight: 650;
+  margin: 0 0 0.35rem;
+}
+
+.md-typeset .nw-demo p {
+  margin: 0 0 0.6rem;
+}
+
+.md-typeset .nw-demo .nw-demo__facts {
+  display: grid;
+  gap: 0.25rem;
+  list-style: none;
+  margin: 0 0 0.7rem;
+  padding: 0;
+}
+
+.md-typeset .nw-demo .nw-demo__facts li {
+  margin: 0;
+}
+
+.md-typeset .nw-demo .nw-demo__facts li::before {
+  color: #16a34a;
+  content: "✓";
+  font-weight: 700;
+  margin-right: 0.45rem;
+}
+
+.md-typeset .nw-demo__fix {
+  background-color: var(--nw-surface);
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+  padding: 0.45rem 0.65rem;
+}
+
+[data-md-color-scheme="slate"] .md-typeset .nw-demo__fix {
+  background-color: var(--nw-surface-2);
+}
+
+.md-typeset .nw-demo__buttons {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.md-typeset .nw-demo__buttons span {
+  background-color: var(--nw-surface-2);
+  border-radius: 6px;
+  color: var(--nw-text);
+  font-weight: 600;
+  padding: 0.3rem 0.85rem;
+}
+
+.md-typeset .nw-demo__buttons .nw-demo__approve {
+  background-color: #16a34a;
+  color: #ffffff;
+}
+
+/* Measured results. */
+.md-typeset .nw-stats {
+  background-color: var(--md-default-bg-color);
+  border: 1px solid var(--nw-border);
+  border-radius: var(--nw-radius-lg);
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0.8rem 0 2.2rem;
+  overflow: hidden;
+}
+
+.md-typeset .nw-stat {
+  border-left: 1px solid var(--nw-border);
+  padding: 1rem 1.2rem;
+}
+
+.md-typeset .nw-stat:first-child {
+  border-left: 0;
+}
+
+.md-typeset .nw-stat strong {
+  color: var(--nw-text);
+  display: block;
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+}
+
+.md-typeset .nw-stat span {
+  color: var(--nw-muted);
+  display: block;
+  font-size: 0.66rem;
+  line-height: 1.45;
+  margin-top: 0.25rem;
+}
+
+/* How an incident runs. */
+.md-typeset .nw-steps.nw-steps {
+  counter-reset: nw-step;
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  list-style: none;
+  margin: 1rem 0 2rem;
+  padding: 0;
+}
+
+.md-typeset .nw-steps.nw-steps > li {
+  background-color: var(--nw-surface);
+  border: 1px solid var(--nw-border);
+  border-radius: var(--nw-radius-lg);
+  counter-increment: nw-step;
+  margin: 0;
+  padding: 1rem;
+}
+
+.md-typeset .nw-steps.nw-steps > li::before {
+  background-color: var(--nw-accent-soft);
+  border-radius: 50%;
+  color: var(--nw-accent);
+  content: counter(nw-step);
+  display: grid;
+  font-size: 0.66rem;
+  font-weight: 700;
+  height: 1.5rem;
+  margin-bottom: 0.6rem;
+  place-items: center;
+  width: 1.5rem;
+}
+
+.md-typeset .nw-steps > li strong {
+  color: var(--nw-text);
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.2rem;
+}
+
+.md-typeset .nw-steps > li span {
+  color: var(--nw-muted);
+  display: block;
+  font-size: 0.7rem;
+  line-height: 1.55;
+}
+
+@media screen and (max-width: 60em) {
+  .nw-hero {
+    gap: 1.6rem;
+    grid-template-columns: minmax(0, 1fr);
+    padding-top: 1.2rem;
+  }
+
+  .md-typeset .nw-hero h1 {
+    font-size: 1.9rem;
+  }
+
+  .md-typeset .nw-stats,
+  .md-typeset .nw-steps.nw-steps,
+  .md-typeset .grid.nw-links {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .md-typeset .nw-stat:nth-child(3) {
+    border-left: 0;
+  }
+
+  .md-typeset .nw-stat:nth-child(n + 3) {
+    border-top: 1px solid var(--nw-border);
+  }
+}
+
+@media screen and (max-width: 30em) {
+  .md-typeset .nw-steps.nw-steps,
+  .md-typeset .grid.nw-links {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ------------------------------------------------------------------ footer */
+
+.md-footer,
+.md-footer-meta {
+  border-top: 1px solid var(--nw-border);
+}
+
+.md-footer__title {
+  color: var(--nw-text);
+}
