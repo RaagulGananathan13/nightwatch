@@ -1,8 +1,8 @@
 # NightWatch
 
 **An open-source AI on-call agent for AWS.** When something breaks, NightWatch investigates logs,
-metrics, recent changes and past incidents. It then posts an evidence-backed diagnosis to Discord,
-where every claim links to the log line or metric it came from. Fixes run only after a human
+metrics, recent changes and past incidents. It then posts an evidence-backed diagnosis to Discord or
+Slack, where every claim links to the log line or metric it came from. Fixes run only after a human
 approves them. NightWatch then verifies each fix and writes the incident up in an automatic
 postmortem.
 
@@ -11,8 +11,9 @@ always-free services and free LLM tiers.
 
 [![CI](https://github.com/RaagulGananathan13/nightwatch/actions/workflows/ci.yml/badge.svg)](https://github.com/RaagulGananathan13/nightwatch/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-site-informational.svg)](https://raagulgananathan13.github.io/nightwatch/)
 
-> **Status: Phase 8 of 9 done.** NightWatch groups alarms into one incident per service, then an
+> **Status: v1.0, all 9 phases done.** NightWatch groups alarms into one incident per service, then an
 > AI agent gathers evidence and posts a diagnosis that cites it, in Discord or Slack. When the
 > evidence matches a reviewed runbook, it proposes the fix, and the fix runs only after a human
 > clicks **Approve**. Then it is verified. In an evaluation on 7 real injected faults, NightWatch named the
@@ -29,32 +30,39 @@ always-free services and free LLM tiers.
 > - a cost guardian;
 > - Slack.
 >
-> Next: production readiness (Phase 9). See the [roadmap](#roadmap) and the
-> [infrastructure guide](infra/README.md).
+> Phase 9 added a [security review](docs/security-review.md) and IAM-enforced tenant
+> isolation, a template for [connecting another AWS account](docs/connect.md), and a
+> [docs site](https://raagulgananathan13.github.io/nightwatch/) with a quickstart. See the
+> [roadmap](#roadmap) and the [infrastructure guide](infra/README.md).
 
 ## How it works
 
 ```mermaid
 flowchart LR
-    subgraph app["Monitored AWS account"]
-        SL["ShopLite demo app<br/>Function URL → Lambda → DynamoDB"]
+    subgraph watched["Watched AWS account: yours, or a connected one"]
+        SL["ShopLite demo app<br/>Lambda + DynamoDB"]
         CW["CloudWatch<br/>logs · metrics · alarms"]
         SL --> CW
     end
 
-    CW -- alarm fires --> EB["EventBridge"] --> ING["ingest Lambda<br/>dedupe + correlate"]
+    CW -- alarm fires --> EB["EventBridge"] --> ING["ingest<br/>dedupe + correlate"]
+    COST["cost guardian<br/>daily check + budget alerts"] --> ING
     ING --> DB[("DynamoDB<br/>incidents · evidence · audit")]
     ING --> WF
 
     subgraph WF["Step Functions incident workflow"]
         direction TB
-        INV["Investigate<br/>read-only tools + LLM"] --> NOTE["Notify"] --> WAIT["Wait for approval"]
-        WAIT --> FIX["Remediate<br/>runbook"] --> VER["Verify<br/>auto-revert if worse"] --> PM["Postmortem"]
+        INV["Investigate<br/>read-only tools + LLM"] --> REP["Report"] --> WAIT["Wait for approval"]
+        WAIT --> FIX["Remediate<br/>runbook"] --> VER["Verify<br/>auto-revert if worse"]
     end
 
     INV <--> LLM["LLM adapter<br/>Groq · Gemini · Ollama"]
-    NOTE --> DC["Discord card<br/>diagnosis + [E#] evidence"]
-    DC -- Approve / Reject --> CHAT["chat Lambda<br/>signature-verified"] --> WAIT
+    REP --> CHAT["Discord · Slack<br/>cards, buttons, /nw"]
+    CHAT -- Approve / Reject --> INT["interactions<br/>signature-checked"] --> WAIT
+    ING -- resolved --> PM["Postmortem<br/>S3 + incident memory"]
+    DB --> DASH["Dashboard<br/>CloudFront + Cognito"]
+    DB --> MCP["MCP server<br/>your AI assistant"]
+    INT -- Publish --> SP["Public status page"]
 ```
 
 1. **Ingest.** A CloudWatch alarm fires, and EventBridge passes it to the ingest Lambda, which
@@ -63,8 +71,8 @@ flowchart LR
    diagnosis that has to cite that evidence.
 3. **Guard.** A deterministic validator checks every citation and number. Claims it can't support
    are labelled *unverified*.
-4. **Approve.** Discord shows the diagnosis with **Approve / Reject** buttons, and the workflow
-   waits, for free, until a human decides.
+4. **Approve.** Discord or Slack shows the diagnosis with **Approve / Reject** buttons, and the
+   workflow waits, for free, until a human decides.
 5. **Fix.** Approved fixes run from version-controlled runbooks. NightWatch verifies each fix and
    rolls it back automatically if things get worse.
 
@@ -84,7 +92,7 @@ Phase 9 is tagged `v1.0`.
 | 6 | Incident memory, auto-revert, postmortems, ChatOps commands | Done |
 | 7 | Web dashboard (React and Cognito) | Done |
 | 8 | Fix-as-PR, alert-noise coach, predictions, status page, MCP server, cost guardian, Slack | Done |
-| 9 | Multi-account connect, docs, security review, launch | Planned |
+| 9 | Multi-account connect, docs, security review, launch | Done |
 
 ## Cost
 
@@ -294,6 +302,21 @@ only the asker saw. The bad-deploy run then went like this:
 The chaos script gave up waiting too early, because the approval came 16 minutes in. It now waits
 for the verification once a fix is approved ([ADR 0022](docs/decisions/0022-slack-adapter.md)).
 
+**Phase 9, security review and connected accounts (2026-11-03).** The
+[review](docs/security-review.md) checked every rule in the spec's security and testing sections
+and fixed four gaps:
+- Slack tokens weren't redacted before reaching the LLM.
+- Tenant isolation was a convention. It is now an IAM `dynamodb:LeadingKeys` rule on all 12
+  roles that touch the table.
+- Redaction had no allow-list for harmless addresses such as `127.0.0.1`.
+- The planner had no injection test, and the diagnosis schema had no contract test.
+
+A bad-deploy run afterwards went from incident to approved, verified fix with zero
+`AccessDenied`. The connect template then made a `NightWatchReadOnly` role in this account,
+standing in for a customer's. `make connect-check` assumed it with its ExternalId and read
+ShopLite through it. Without the ExternalId, the role refused
+([ADR 0023](docs/decisions/0023-connected-accounts.md)).
+
 Earlier runs against the deployed stack, from 2026-10-28:
 
 | Run | Fault start → incident + Discord message | Alarms grouped | Messages posted |
@@ -352,7 +375,8 @@ unit tests ([ADR 0012](docs/decisions/0012-approval-gated-remediation.md)).
 ├── chaos/               # failure-injection scenarios with ground truth
 ├── eval/                # evaluation harness and results
 ├── dashboard/           # React web dashboard (Phase 7)
-├── docs/decisions/      # architecture decision records
+├── connect/             # CloudFormation template to connect another AWS account
+├── docs/               # the docs site (mkdocs.yml): quickstart, architecture, decisions
 └── tests/               # unit tests (no real AWS) and opt-in integration tests
 ```
 
