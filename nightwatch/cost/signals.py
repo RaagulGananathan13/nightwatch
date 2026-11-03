@@ -114,14 +114,9 @@ def daily(
 
 def budget(message: str, subject: str, service: str) -> Signal:
     """An AWS Budget notification (the same text AWS emails) as a signal."""
-    fields = {key.lower(): value for key, value in _FIELD.findall(message)}
-    sentence = _SENTENCE.search(message)
-    kind = (fields.get("alert type") or (sentence.group(1) if sentence else "")).upper()
-    if kind not in ("ACTUAL", "FORECASTED"):
-        kind = "FORECASTED" if "forecast" in f"{subject} {message}".lower() else "ACTUAL"
-    spent = fields.get(f"{kind.lower()} amount") or (sentence.group(2) if sentence else "?")
+    fields, kind, spent = _read_budget(message, subject)
     name = fields.get("budget name", "the budget")
-    if fields or sentence:
+    if fields or spent != "?":
         summary = (
             f"AWS Budget {name}: {kind.lower()} spend is {spent}, past the alert at "
             f"{fields.get('alert threshold', '?')} (budget {fields.get('budgeted amount', '?')})."
@@ -130,6 +125,23 @@ def budget(message: str, subject: str, service: str) -> Signal:
         summary = f"AWS Budget alert: {(subject or message)[:200]}"
     severity: Severity = "high" if kind == "ACTUAL" else "medium"
     return Signal(f"{PREFIX}budget:{kind.lower()}", service, severity, summary[:300])
+
+
+def budget_spend(message: str, subject: str = "") -> tuple[str, float | None]:
+    """A budget alert's kind (ACTUAL or FORECASTED) and the dollars it reports, if it says."""
+    _, kind, spent = _read_budget(message, subject)
+    number = re.search(r"\d[\d,]*(?:\.\d+)?", spent)
+    return kind, float(number.group().replace(",", "")) if number else None
+
+
+def _read_budget(message: str, subject: str) -> tuple[dict[str, str], str, str]:
+    fields = {key.lower(): value for key, value in _FIELD.findall(message)}
+    sentence = _SENTENCE.search(message)
+    kind = (fields.get("alert type") or (sentence.group(1) if sentence else "")).upper()
+    if kind not in ("ACTUAL", "FORECASTED"):
+        kind = "FORECASTED" if "forecast" in f"{subject} {message}".lower() else "ACTUAL"
+    spent = fields.get(f"{kind.lower()} amount") or (sentence.group(2) if sentence else "?")
+    return fields, kind, spent
 
 
 def owner(usage: dict[str, list[Usage]], measure: str, services: list[ServiceInfo]) -> str:

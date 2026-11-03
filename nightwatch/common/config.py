@@ -55,6 +55,8 @@ class Settings:
     slack_bot_token_param: str = ""  # SSM SecureString: the app's bot token (xoxb-)
     slack_channel_id: str = ""
     slack_signing_secret_param: str = ""  # SSM SecureString: checks every request
+    # The emergency stop: real spend this month at or past this switches everything off.
+    stop_at_usd: float = 0.5
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> Settings:
@@ -91,4 +93,5 @@ class Settings:
             slack_bot_token_param=env.get("SLACK_BOT_TOKEN_PARAM", ""),
             slack_channel_id=env.get("SLACK_CHANNEL_ID", ""),
             slack_signing_secret_param=env.get("SLACK_SIGNING_SECRET_PARAM", ""),
+            stop_at_usd=float(env.get("STOP_AT_USD", "0.5")),
         )
