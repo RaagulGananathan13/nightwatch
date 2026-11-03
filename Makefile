@@ -23,7 +23,7 @@ TF_ENV := $(TF_DIR)/envs/dev
 
 # Local Terraform and AWS runs use the restricted deployer profile (ADR 0006).
 export AWS_PROFILE ?= nightwatch
-DISCORD_GUILD_ID ?= 1565026603212210176
+DISCORD_GUILD_ID ?=
 GIT_SHA := $(shell git rev-parse --short=12 HEAD 2>/dev/null || echo dev)
 
 .PHONY: help install fmt lint typecheck test check security tf-fmt tf-check clean build
@@ -160,10 +160,11 @@ dashboard-deploy: ## Upload the built dashboard and refresh CloudFront (CI does 
 		--bucket "$$(terraform -chdir=infra/envs/dev output -raw dashboard_bucket)" \
 		--distribution "$$(terraform -chdir=infra/envs/dev output -raw dashboard_distribution_id)"
 
-discord-commands: ## Register the /nw slash command in your Discord server (after apply)
+discord-commands: ## Register the /nw slash command in your Discord server: make discord-commands DISCORD_GUILD_ID=<server id>
+	@test -n "$(DISCORD_GUILD_ID)" || { echo "Give your Discord server id: make discord-commands DISCORD_GUILD_ID=<id>"; exit 1; }
 	$(PY) -m scripts.discord_commands --guild $(DISCORD_GUILD_ID)
 
-backfill-memory: ## Write postmortems and memories for incidents resolved before Phase 6
+backfill-memory: ## Write postmortems and memories for incidents resolved before incident memory existed
 	$(PY) -m scripts.backfill_memory
 
 memory-check: ## Run the bad deploy twice: the second diagnosis must cite the first (~30 min)

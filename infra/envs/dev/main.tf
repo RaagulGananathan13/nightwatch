@@ -5,12 +5,14 @@ provider "aws" {
   region = var.region
 
   default_tags {
-    tags = {
-      project      = "nightwatch"
-      environment  = "dev"
-      "managed-by" = "terraform"
-      repo         = var.github_repo
-    }
+    tags = merge(
+      {
+        project      = "nightwatch"
+        environment  = "dev"
+        "managed-by" = "terraform"
+      },
+      var.github_repo == "" ? {} : { repo = var.github_repo },
+    )
   }
 }
 
@@ -90,7 +92,9 @@ module "alarms" {
   table_name    = module.shoplite.table_name
 }
 
+# GitHub Actions roles, only when github_subject_prefix names your repository.
 module "iam" {
+  count                    = var.github_subject_prefix == "" ? 0 : 1
   source                   = "../../modules/iam"
   github_subject_prefix    = var.github_subject_prefix
   create_oidc_provider     = var.create_github_oidc_provider
@@ -101,6 +105,11 @@ module "iam" {
     bucket_arn       = module.dashboard.bucket_arn
     distribution_arn = module.dashboard.distribution_arn
   }
+}
+
+moved {
+  from = module.iam
+  to   = module.iam[0]
 }
 
 # ------------------------------------------------------------------- free-tier guard

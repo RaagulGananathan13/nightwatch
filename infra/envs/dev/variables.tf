@@ -5,15 +5,15 @@ variable "region" {
 }
 
 variable "github_repo" {
-  description = "owner/name of the GitHub repo whose Actions may deploy."
+  description = "owner/name of your GitHub repository, added as a tag. Empty: no tag."
   type        = string
-  default     = "RaagulGananathan13/nightwatch"
+  default     = ""
 }
 
 variable "github_subject_prefix" {
-  description = "OIDC subject prefix GitHub uses for this repo (immutable IDs). See modules/iam."
+  description = "Your repository's OIDC subject prefix, so its GitHub Actions can deploy and plan. Empty: no GitHub Actions roles. See modules/iam."
   type        = string
-  default     = "repo:RaagulGananathan13@181767902/nightwatch@1436929923"
+  default     = ""
 }
 
 variable "create_github_oidc_provider" {
@@ -66,19 +66,19 @@ variable "dashboard_users" {
 }
 
 variable "discord_channel_id" {
-  description = "Discord channel where approval cards are posted (#incidents)."
+  description = "Discord channel where approval cards are posted (#incidents). Empty: no approval buttons in Discord."
   type        = string
-  default     = "1565026740634390659"
+  default     = ""
 }
 
 variable "discord_public_key" {
   description = "Public key of the NightWatch Discord application (Developer Portal, General Information)."
   type        = string
-  default     = "97504cad6de4bc986b0886ca787896e87e5aacf8e015d99ce863040e29d086d1"
+  default     = ""
 }
 
 variable "slack_channel_id" {
   description = "Slack channel for incident cards (#incidents), e.g. C0123ABCD. Empty: Slack is off."
   type        = string
-  default     = "C0CDF8TK2RM"
+  default     = ""
 }

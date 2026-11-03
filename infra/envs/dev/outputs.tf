@@ -60,12 +60,12 @@ output "kill_switch_parameter" {
 
 output "github_deploy_role_arn" {
   description = "Save as repo variable AWS_DEPLOY_ROLE_ARN."
-  value       = module.iam.deploy_role_arn
+  value       = one(module.iam[*].deploy_role_arn)
 }
 
 output "github_plan_role_arn" {
   description = "Save as repo variable AWS_PLAN_ROLE_ARN."
-  value       = module.iam.plan_role_arn
+  value       = one(module.iam[*].plan_role_arn)
 }
 
 output "free_tier_usage" {
