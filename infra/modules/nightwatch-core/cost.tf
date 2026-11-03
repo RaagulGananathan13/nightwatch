@@ -108,6 +108,29 @@ data "aws_iam_policy_document" "cost" {
   }
 
   statement {
+    # The emergency stop (stop.py): a reserved concurrency of 0 switches a function off. Only
+    # NightWatch's and ShopLite's own functions, never another project's.
+    sid     = "EmergencyStop"
+    actions = ["lambda:PutFunctionConcurrency"]
+    resources = [
+      "arn:aws:lambda:${local.region}:${local.account}:function:nightwatch-*",
+      "arn:aws:lambda:${local.region}:${local.account}:function:shoplite-*",
+    ]
+  }
+
+  statement {
+    sid       = "KillSwitchOn"
+    actions   = ["ssm:PutParameter"]
+    resources = [local.kill_switch_arn]
+  }
+
+  statement {
+    sid       = "ShrinkCapacity"
+    actions   = ["dynamodb:UpdateTable"]
+    resources = concat(var.watched.table_arns, [aws_dynamodb_table.this.arn])
+  }
+
+  statement {
     sid       = "WriteLogs"
     actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
     resources = ["${aws_cloudwatch_log_group.cost.arn}:*"]
@@ -143,6 +166,8 @@ resource "aws_lambda_function" "cost" {
       POSTMORTEM_FUNCTION   = aws_lambda_function.postmortem.function_name
       SLACK_BOT_TOKEN_PARAM = local.slack_token_param
       SLACK_CHANNEL_ID      = var.slack_channel_id
+      KILL_SWITCH_PARAM     = var.kill_switch_param
+      STOP_AT_USD           = tostring(var.stop_at_usd)
     }
   }
 
@@ -219,4 +244,31 @@ resource "aws_lambda_permission" "budget" {
   function_name = aws_lambda_function.cost.function_name
   principal     = "sns.amazonaws.com"
   source_arn    = aws_sns_topic.budget.arn
+}
+
+# ----------------------------------------------------------------------- emergency stop
+# Lambda calls running away (a flood on the public chat endpoint, or a loop) are caught here in
+# minutes, long before a bill shows them. The alarm calls the cost Lambda, which stops everything.
+
+resource "aws_cloudwatch_metric_alarm" "runaway" {
+  alarm_name          = "nightwatch-runaway-invocations"
+  alarm_description   = "Lambda calls ran away: the emergency stop switches NightWatch and ShopLite off."
+  namespace           = "AWS/Lambda"
+  metric_name         = "Invocations"
+  statistic           = "Sum"
+  period              = 300
+  evaluation_periods  = 1
+  threshold           = var.runaway_invocations
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [aws_lambda_function.cost.arn]
+  tags                = var.tags
+}
+
+resource "aws_lambda_permission" "runaway" {
+  statement_id  = "RunawayAlarm"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.cost.function_name
+  principal     = "lambda.alarms.cloudwatch.amazonaws.com"
+  source_arn    = aws_cloudwatch_metric_alarm.runaway.arn
 }

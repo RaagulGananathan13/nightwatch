@@ -135,3 +135,15 @@ variable "slack_channel_id" {
   type        = string
   default     = ""
 }
+
+variable "stop_at_usd" {
+  description = "Real spend this month at or past this switches NightWatch and ShopLite off."
+  type        = number
+  default     = 0.5
+}
+
+variable "runaway_invocations" {
+  description = "Lambda calls in 5 minutes (account-wide) that count as running away."
+  type        = number
+  default     = 30000
+}

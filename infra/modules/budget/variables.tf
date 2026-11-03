@@ -27,3 +27,9 @@ variable "sns_topic_arn" {
   type        = string
   default     = ""
 }
+
+variable "stop_at_usd" {
+  description = "Also alert at this real spend, the emergency stop's line. 0: no such alert."
+  type        = number
+  default     = 0
+}

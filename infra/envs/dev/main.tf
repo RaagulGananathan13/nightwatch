@@ -28,8 +28,10 @@ module "budget" {
   alert_email = var.budget_alert_email
   services    = var.budget_services
 
-  # Budget alerts also become NightWatch incidents (spec F17).
+  # Budget alerts also become NightWatch incidents (spec F17), and past the stop line,
+  # switch NightWatch off.
   sns_topic_arn = module.nightwatch_core.budget_topic_arn
+  stop_at_usd   = 0.5
 }
 
 module "shoplite" {
@@ -108,7 +110,7 @@ module "iam" {
 locals {
   dynamodb_read_units  = module.shoplite.provisioned_capacity.read + module.nightwatch_core.provisioned_capacity.read
   dynamodb_write_units = module.shoplite.provisioned_capacity.write + module.nightwatch_core.provisioned_capacity.write
-  alarm_metrics        = module.alarms.alarm_metric_count
+  alarm_metrics        = module.alarms.alarm_metric_count + module.nightwatch_core.alarm_metric_count
 }
 
 resource "terraform_data" "free_tier_guard" {

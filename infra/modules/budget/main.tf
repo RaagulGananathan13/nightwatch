@@ -21,11 +21,15 @@ resource "aws_budgets_budget" "this" {
   }
 
   dynamic "notification" {
-    for_each = {
-      first_cent = { type = "ACTUAL", percent = 1 }
-      over_limit = { type = "ACTUAL", percent = 100 }
-      forecast   = { type = "FORECASTED", percent = 100 }
-    }
+    for_each = merge(
+      {
+        first_cent = { type = "ACTUAL", percent = 1 }
+        over_limit = { type = "ACTUAL", percent = 100 }
+        forecast   = { type = "FORECASTED", percent = 100 }
+      },
+      # The emergency stop's line: NightWatch switches itself off when this one fires.
+      var.stop_at_usd > 0 ? { stop = { type = "ACTUAL", percent = var.stop_at_usd / var.limit_usd * 100 } } : {},
+    )
 
     content {
       notification_type          = notification.value.type

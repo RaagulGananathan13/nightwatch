@@ -59,3 +59,8 @@ output "budget_topic_arn" {
   description = "SNS topic the AWS Budget alerts go to; the cost guardian turns them into incidents (spec F17)."
   value       = aws_sns_topic.budget.arn
 }
+
+output "alarm_metric_count" {
+  description = "Alarm metrics this module adds (the runaway alarm), for the free-tier guard."
+  value       = 1
+}
