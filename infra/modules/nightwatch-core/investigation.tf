@@ -137,6 +137,26 @@ data "aws_iam_policy_document" "read_only_tools" {
     actions   = ["ssm:GetParameter", "ssm:GetParameterHistory"]
     resources = var.watched.parameter_arns
   }
+
+  statement {
+    # Connected accounts (spec section 13): only the role the connect template makes there,
+    # and only with an ExternalId, which that role's trust policy checks.
+    sid       = "ReadConnectedAccounts"
+    actions   = ["sts:AssumeRole"]
+    resources = ["arn:aws:iam::*:role/NightWatchReadOnly-*"]
+
+    condition {
+      test     = "Null"
+      variable = "sts:ExternalId"
+      values   = ["false"]
+    }
+  }
+
+  statement {
+    sid       = "ReadTenantExternalIds"
+    actions   = ["ssm:GetParameter"]
+    resources = ["arn:aws:ssm:${local.region}:${local.account}:parameter/nightwatch/tenants/*"]
+  }
 }
 
 resource "aws_lambda_function" "investigate" {

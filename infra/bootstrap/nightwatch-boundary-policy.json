@@ -146,6 +146,12 @@
       "Resource": "arn:aws:budgets::__ACCOUNT_ID__:budget/nightwatch-*"
     },
     {
+      "Sid": "ReadConnectedAccounts",
+      "Effect": "Allow",
+      "Action": "sts:AssumeRole",
+      "Resource": "arn:aws:iam::*:role/NightWatchReadOnly-*"
+    },
+    {
       "Sid": "OwnTopics",
       "Effect": "Allow",
       "Action": [

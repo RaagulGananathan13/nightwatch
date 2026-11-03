@@ -63,6 +63,8 @@ jobs:
       - name: Checkov (Terraform security scan)
         # Skipped checks are written inline in the Terraform, each with its cost reason.
         run: pipx run --spec checkov==3.3.30 checkov --directory infra --framework terraform --quiet --compact
+      - name: Checkov (the connect template)
+        run: pipx run --spec checkov==3.3.30 checkov --directory connect --framework cloudformation --quiet --compact
 
   plan:
     name: Terraform plan (dev)
