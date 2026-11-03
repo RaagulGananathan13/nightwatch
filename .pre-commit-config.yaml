@@ -11,6 +11,7 @@ repos:
       - id: mixed-line-ending
         args: [--fix=lf]
       - id: check-yaml
+        args: [--unsafe] # syntax only: mkdocs.yml uses !!python/name tags
       - id: check-json
       - id: check-toml
       - id: check-merge-conflict
@@ -45,6 +46,7 @@ repos:
           - types-PyYAML==6.0.12.20260906
           - pydantic==2.14.1
           - moto==5.2.5
+          - PyJWT==2.15.1
 
   - repo: local
     hooks:
