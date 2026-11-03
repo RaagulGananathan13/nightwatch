@@ -34,7 +34,7 @@ switches it off ([cost and safety](docs/cost-and-safety.md)).
 > Phase 9 added a [security review](docs/security-review.md) and IAM-enforced tenant
 > isolation, a template for [connecting another AWS account](docs/connect.md), and a
 > [docs site](https://raagulgananathan13.github.io/nightwatch/) with a quickstart. See the
-> [roadmap](#roadmap) and the [infrastructure guide](infra/README.md).
+> [roadmap](#roadmap) and the [deploy guide](https://raagulgananathan13.github.io/nightwatch/deploy/).
 
 ## How it works
 
@@ -129,11 +129,11 @@ make check       # lint, type-check and unit tests (the same as CI)
 make help        # list every task
 ```
 
-To deploy to your own AWS account, follow the step-by-step [infrastructure guide](infra/README.md).
+To deploy to your own AWS account, follow [Deploy to AWS](https://raagulgananathan13.github.io/nightwatch/deploy/) on the docs site.
 
 ## See it work
 
-With the stack deployed and a Discord webhook stored (see the infrastructure guide), run:
+With the stack deployed and a Discord webhook stored (see the deploy guide), run:
 
 ```bash
 make chaos-bad-deploy

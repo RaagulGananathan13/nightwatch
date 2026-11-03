@@ -1,50 +1,47 @@
 # Quickstart
 
-## Try it in five minutes (no AWS needed)
+Try NightWatch on your own computer in about five minutes. You need no AWS account and no API
+keys: the tests use fake AWS and language-model clients.
 
-You need Python 3.13, Git and `make` (on Windows, use Git Bash).
+## Run the tests
+
+You need Python 3.13, Git and `make`. On Windows, run these from Git Bash.
 
 ```bash
 git clone https://github.com/RaagulGananathan13/nightwatch.git
 cd nightwatch
 make install        # a virtual environment with every dependency
-make check          # lint, types and over 300 tests, in about a minute
+make check          # lint, strict type checks and over 300 tests, in about a minute
 ```
 
-The tests replay a recorded bad-deploy incident with fake AWS and LLM clients. To watch the
-agent work through it, and then the guard catching a made-up number, run:
+## Watch an investigation
 
-```bash
-.venv/Scripts/python -m pytest tests/unit/nightwatch/test_agent.py -v   # .venv/bin/python on macOS and Linux
-```
+The tests replay a recorded bad-deploy incident. To watch the agent work through it, and the
+guard catch a made-up number in a diagnosis, run:
 
-Then read what happened on real AWS:
-- the [evaluation](https://github.com/RaagulGananathan13/nightwatch/blob/main/eval/results.md):
-  7 injected faults, 7 root causes found;
-- the live runs in the
+=== "Windows"
+
+    ```bash
+    .venv/Scripts/python -m pytest tests/unit/nightwatch/test_agent.py -v
+    ```
+
+=== "macOS and Linux"
+
+    ```bash
+    .venv/bin/python -m pytest tests/unit/nightwatch/test_agent.py -v
+    ```
+
+## See it on real AWS
+
+- The [evaluation](https://github.com/RaagulGananathan13/nightwatch/blob/main/eval/results.md):
+  seven injected faults, seven root causes found.
+- The live runs in the
   [README](https://github.com/RaagulGananathan13/nightwatch#measured-so-far).
 
-## Deploy it (about 30 minutes, mostly waiting for AWS)
+## Next steps
 
-Everything stays in AWS's always-free tier, and a $1 budget alert watches it. The
-[infrastructure guide](https://github.com/RaagulGananathan13/nightwatch/blob/main/infra/README.md)
-has every step. In short:
+To run NightWatch in your own AWS account:
 
-1. **Make the deployer.** As the account owner, in AWS CloudShell, run
-   `bash nightwatch/infra/bootstrap/create-deployer.sh`. It makes a restricted user whose
-   permissions boundary caps everything NightWatch can ever do.
-2. **Make the state bucket:** `make bootstrap-plan`, then `make bootstrap-apply`.
-3. **Store your secrets in SSM yourself.** You need a Discord webhook and a free Groq API key.
-   They never pass through Terraform or Git.
-4. **Build it:** `make init`, then `make plan` (read it), then `make apply`.
-5. **Break something on purpose:** `make chaos NAME=bad-deploy`. Within about a minute,
-   Discord shows the incident and its diagnosis.
-
-Optional extras, each in the guide:
-- approval buttons, by adding a Discord bot;
-- the `/nw` commands;
-- the web dashboard;
-- Slack;
-- the MCP server.
-
-Then [connect another account](connect.md).
+1. Check the [prerequisites](prerequisites.md).
+2. Follow [Deploy to AWS](deploy.md). It takes about 30 minutes, mostly waiting for AWS.
+3. Add [approval buttons and Slack](chat.md).
