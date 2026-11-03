@@ -43,31 +43,41 @@ class ToolResult:
 
 
 class AwsClients:
-    """boto3 clients, created on first use (tests swap in fakes)."""
+    """boto3 clients, created on first use (tests swap in fakes). Given a session, a connected
+    account's (spec section 13), every client reads that account instead of NightWatch's."""
+
+    def __init__(self, session: Any = None) -> None:
+        self._client: Any = session.client if session is not None else boto3.client
 
     @cached_property
     def cloudwatch(self) -> CloudWatchClient:
-        return boto3.client("cloudwatch")
+        client: CloudWatchClient = self._client("cloudwatch")
+        return client
 
     @cached_property
     def logs(self) -> CloudWatchLogsClient:
-        return boto3.client("logs")
+        client: CloudWatchLogsClient = self._client("logs")
+        return client
 
     @cached_property
     def lambda_(self) -> LambdaClient:
-        return boto3.client("lambda")
+        client: LambdaClient = self._client("lambda")
+        return client
 
     @cached_property
     def dynamodb(self) -> DynamoDBClient:
-        return boto3.client("dynamodb")
+        client: DynamoDBClient = self._client("dynamodb")
+        return client
 
     @cached_property
     def ssm(self) -> SSMClient:
-        return boto3.client("ssm")
+        client: SSMClient = self._client("ssm")
+        return client
 
     @cached_property
     def cloudtrail(self) -> CloudTrailClient:
-        return boto3.client("cloudtrail")
+        client: CloudTrailClient = self._client("cloudtrail")
+        return client
 
 
 @dataclass
